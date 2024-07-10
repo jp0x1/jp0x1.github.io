@@ -7,7 +7,7 @@ heroImage:
     alt: 'GitHub wallpaper'
 platform: Local
 stack: ["Python"]
-github: tbd
+github: https://github.com/jp0x1/stevens-quantum-research
 order: 1
 ---
 
