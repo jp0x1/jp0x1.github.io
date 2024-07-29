@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/Base.astro';
 import PostPreview from "@/components/blog/PostPreviewB";
 import SocialMediaLinks from "@/components/SocialMediaLinks";
 import { getAllPosts, sortMDByDate, sortMDByPinned } from "@/utils";
-
+import { Image } from 'astro:assets';
 const MAX_POSTS = 10;
 const allPosts = await getAllPosts();
 const allPostsByDate = sortMDByDate(allPosts).slice(0, MAX_POSTS);
@@ -48,10 +48,17 @@ const tech: Array<{ title: string; desc: string; href: string }> = [
 	<section>
 		<h1 class="title">Hello World</h1>
 		<p class="mb-4 sm:mb-8">
+			<Image src="/img/profile.png" alt="A bird." width="300" height="300" />
+			<br>
 			Hey guys! My name is Jake Park and I am a student in the Computer Science Major at Bergen County Technical High Schools Teterboro. I am interested in cybersecurity and physics. I'm planning to major in Electrical and Computer Engineering and maybe add in physics (quantum?). In this website you can find my writeups for Capture The Flag competitions as well as some notable projects that I have completed.  
 			<br>
 			<br>
 			ps. follow me on YT where I go through the PortSwigger web academy challenges and other CTF stuff, maybe even physics stuff.
+			<br>
+			<br>
+			First video.
+			<iframe width="560" height="315" src="https://www.youtube.com/embed/HC-n_LWMN6c?si=_DrbFN5GGL-zKBGw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+			
 		</p>
 		<div>
 			<span>You can find me on: </span>
