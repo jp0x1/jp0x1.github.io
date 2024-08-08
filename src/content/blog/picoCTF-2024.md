@@ -1,7 +1,7 @@
 ---
 title: 'picoctf 2024'
 description: 'Here is the solutions to some of the challenges in picoctf 2024'
-pubDate: 'Aug 5 2024'
+pubDate: 'Mar 27 2024'
 heroImage: 
   src: '/blog-placeholder-1.jpg'
   alt: ''
