@@ -19,11 +19,11 @@
     color-scheme: dark;
     --theme-bg: #1d1d1d;
     --theme-text: #ededed;
-    --theme-accent: #93e1d4;
+    --theme-accent: #be59f8;
     --theme-accent-2: #545454;
     --theme-surface: #2f2f2f;
-    --theme-quote: #93e1d4;
-    --theme-highlight: #93e1d4;
+    --theme-quote: #c493e1;
+    --theme-highlight: #de93e1;
   }
 
   html {

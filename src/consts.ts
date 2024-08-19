@@ -47,6 +47,11 @@ export const socialLinks: Array<SocialLink> = [
     icon: "mdi:email",
     friendlyName: "email",
     link: "mailto:jakepark2908@gmail.com",
+  },
+  {
+    icon:"mdi:youtube",
+    friendlyName:"youtube",
+    link: "https://www.youtube.com/@jp_local10"
   }
 ];
 
