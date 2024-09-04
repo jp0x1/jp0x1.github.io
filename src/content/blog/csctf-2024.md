@@ -77,13 +77,15 @@ ln -s ../../../home/user/flag.txt flag
 zip -r flag.zip flag
 ```
 
-And... we profit! 
+We then send it, download it, and... we profit! 
 
 > CSCTF{5yml1nk5_4r3_w31rd}
 
 ## Reverse Engineering
 
 ### Key
+
+> GDB is cool! Ghidra or IDA is helpful
 
 This is a basic keygen + password checking crackme. What we do is just find the algorithm in a disassembler like `Ghidra` and put the algorithm in a Z3 script.
 
@@ -121,6 +123,8 @@ else:
 > CSCTF{u_g0T_it_h0OrAy6778462123}
 
 ### Encryptor
+
+> My friend sent me this app with an encoded flag, but he forgot to implement the decryption algorithm! Can you help me out?
 
 This is an android web application. So what we can do is use JADX decompiler to analyze the java kotlin code that makes up this application
 
@@ -188,6 +192,8 @@ And we get the flag!
 ## Sandbox
 
 ### Baby Pybash
+
+>I made a very secure bash terminal in Python. I don't think anyone can break in!
 
 So we enter a "python bash jail" where we are restricted from certain characters in input to make commands. Let's analyze the source code to see what we are missing.
 
