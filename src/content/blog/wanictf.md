@@ -1,7 +1,7 @@
 ---
 title: 'wanictf 2024 challenges'
 description: 'Solutions I did for WaniCTF 2024'
-pubDate: 'Jul 01 2022'
+pubDate: 'May 01 2024'
 heroImage: 
   src: '/blog-placeholder-1.jpg'
   alt: ''
