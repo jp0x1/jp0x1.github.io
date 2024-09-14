@@ -9,7 +9,7 @@ order: 1
 tags: ["off-season"]
 ---
 
-# Background Information
+## Background Information
 
 I suck at pwn, but I want to delve more into low-level languages so I decided to distance myself from web and into languages like C or Rust. I also want to try something that's a little less like reverse engineering since I am really bad at reverse engineering. These speedrun challs were also defined as easy, so I think it will be good practice to learn some fundamentals behind pwn.
 
