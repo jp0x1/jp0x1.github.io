@@ -11,7 +11,7 @@ tags: ["off-season"]
 
 # Background Information
 
-Welcome to one of my "suites"! These suites are me practicing some skills for CTFs or just fooling around. This suite is focused on android reverse engineering. I'll be using OWASP android app samples and a google beginner's quest CTF challenge.
+Welcome to one of my "suites"! These suites are me practicing some skills for CTFs or just fooling around. This suite is focused on android reverse engineering. I'll be using OWASP android app samples, picoctf challenges, some hextree.io (maybe) and a google beginner's quest CTF challenge.
 
 ## OWASP
 #### Android UnCrackable L1 
@@ -149,4 +149,8 @@ print(decrypted.decode('utf-8'))
 We get our password: `I want to believe`. We can check this by emulating the android application.
 
 ![Image of exploit success](/img/writeups/2024/android-suite/OWASP_level1.png)
+
+## picoCTF
+
+#### droids 3
 
