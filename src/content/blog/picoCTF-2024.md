@@ -1,12 +1,10 @@
 ---
 title: 'picoctf 2024'
 description: 'Here is the solutions to some of the challenges in picoctf 2024'
-pubDate: 'Mar 27 2024'
-heroImage: 
-  src: '/blog-placeholder-1.jpg'
-  alt: ''
-order: 1
-tags: ["writeup"]
+pubDatetime: 2022-03-23T15:22:00Z
+modDatetime: 2023-12-21T09:12:47.400Z
+tags: 
+- "writeup"
 ---
 # Background Information
 I participated in picoCTF 2024 with the team Cyber Thugs. We placed 24th in the United States with a score of 6925. This competition definitely was fun. Challenges were not too complex, but there was always something that kept my time from solving. Hopefully picoCTF 2025 will be better :prayer:

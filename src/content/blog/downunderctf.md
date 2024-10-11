@@ -1,12 +1,10 @@
 ---
 title: 'down-under ctf 2024 challenges'
 description: 'Solutions I did for down-under 2024'
-pubDate: 'Jul 01 2024'
-heroImage: 
-  src: '/blog-placeholder-1.jpg'
-  alt: ''
-order: 1
-tags: ["writeup"]
+pubDatetime: 2023-04-23T15:22:00Z
+modDatetime: 2023-12-21T09:12:47.400Z
+tags: 
+- "writeup"
 ---
 
 # Background Information

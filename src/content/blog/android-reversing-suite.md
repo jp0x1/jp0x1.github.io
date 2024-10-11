@@ -1,10 +1,7 @@
 ---
-title: 'android reversing suite'
+title: 'android reversing suite (UPDATE ABANDONED)'
 description: 'Some basic challenges based on android reversing. Will update as I solve more challenges'
-pubDate: 'Sep 4 2024'
-heroImage: 
-  src: '/blog-placeholder-1.jpg'
-  alt: ''
+pubDatetime: 2024-09-23T15:22:00Z
 order: 1
 tags: ["off-season"]
 ---

@@ -1,12 +1,10 @@
 ---
 title: 'defcon 2019 quals speedruns'
 description: 'Some basic challenges based on the defcon 2019 quals speedrun pwn challenges'
-pubDate: 'Sep 13 2024'
-heroImage: 
-  src: '/blog-placeholder-1.jpg'
-  alt: ''
-order: 1
-tags: ["off-season"]
+pubDatetime: 2022-09-23T15:22:00Z
+modDatetime: 2023-12-21T09:12:47.400Z
+tags: 
+- "off-season"
 ---
 
 ## Background Information

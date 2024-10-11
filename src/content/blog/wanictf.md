@@ -1,12 +1,10 @@
 ---
 title: 'wanictf 2024 challenges'
+pubDatetime: 2022-03-23T15:22:00Z
+modDatetime: 2023-12-21T09:12:47.400Z
 description: 'Solutions I did for WaniCTF 2024'
-pubDate: 'May 01 2024'
-heroImage: 
-  src: '/blog-placeholder-1.jpg'
-  alt: ''
-order: 1
-tags: ["writeup"]
+tags: 
+- "writeup"
 ---
 
 # Background Information

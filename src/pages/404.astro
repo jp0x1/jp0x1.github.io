@@ -1,37 +1,42 @@
 ---
-import BaseLayout from '../layouts/Base.astro';
+import { SITE } from "@config";
+import Layout from "@layouts/Layout.astro";
+import Header from "@components/Header.astro";
+import Footer from "@components/Footer.astro";
+import LinkButton from "@components/LinkButton.astro";
 ---
 
-<BaseLayout title="404">
-	<section class="flex justify-center items-center h-80 border-dashed border border-accent ">
-		<div  class="flex-col gap-2 text-8xl p-4 h-min">
-			<span id="status-code"> 404</span>
-			<div class="border-b-2 border-accent w-full border-solid blink mt-1"></div>
-		</div>
-		<span>Looks like you're lost! You sure you know where you're going?</span>
-	</section>
-</BaseLayout>
+<Layout title={`404 Not Found | ${SITE.title}`}>
+  <Header />
+
+  <main id="main-content">
+    <div class="not-found-wrapper">
+      <h1>404</h1>
+      <span aria-hidden="true">¯\_(ツ)_/¯</span>
+      <p>Page Not Found</p>
+      <LinkButton
+        href="/"
+        className="my-6 text-lg underline decoration-dashed underline-offset-8"
+      >
+        Go back home
+      </LinkButton>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>
 
 <style>
-	#status-code:before {
-		content: "./";
-		@apply -mr-16 text-accent-2;
-	}
- 
-	.blink {
-		animation: blink-animation 1.5s steps(2, start) infinite;
-		-webkit-animation: blink-animation 1.5s steps(2, start) infinite;
-	}
-
-	@keyframes blink-animation {
-		to {
-			visibility: hidden;
-		}
-	}
-
-	@-webkit-keyframes blink-animation {
-		to {
-			visibility: hidden;
-		}
-	}
+  #main-content {
+    @apply mx-auto flex max-w-3xl flex-1 items-center justify-center;
+  }
+  .not-found-wrapper {
+    @apply mb-14 flex flex-col items-center justify-center;
+  }
+  .not-found-wrapper h1 {
+    @apply text-9xl font-bold text-skin-accent;
+  }
+  .not-found-wrapper p {
+    @apply mt-4 text-2xl sm:text-3xl;
+  }
 </style>

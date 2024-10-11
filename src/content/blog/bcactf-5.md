@@ -1,12 +1,10 @@
 ---
 title: 'bcactf 5 2024'
 description: 'Here is the solutions to some of the challenges in bcactf 5'
-pubDate: 'Mar 27 2024'
-heroImage: 
-  src: '/blog-placeholder-1.jpg'
-  alt: ''
-order: 1
-tags: ["writeup"]
+pubDatetime: 2024-06-23T15:22:00Z
+modDatetime: 2023-12-21T09:12:47.400Z
+tags: 
+- "writeup"
 ---
 
 # Background Information

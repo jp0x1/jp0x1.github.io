@@ -1,12 +1,10 @@
 ---
 title: 'csctf 2024'
 description: 'Here is the solutions to some of the challenges in CyberSpace CTF'
-pubDate: 'Aug 31 2024'
-heroImage: 
-  src: '/blog-placeholder-1.jpg'
-  alt: ''
-order: 1
-tags: ["writeup"]
+pubDatetime: 2022-08-28T15:22:00Z
+modDatetime: 2023-12-21T09:12:47.400Z
+tags: 
+- "writeup"
 ---
 
 # Background Information
