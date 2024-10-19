@@ -1,0 +1,43 @@
+---
+import PageMeta from "../components/PageMeta.astro";
+import PageLayout from "../layouts/PageLayout.astro";
+import Intro from "../components/Intro.astro";
+import { SITE_TITLE } from "../config";
+---
+
+<PageLayout>
+  <PageMeta title={`About | ${SITE_TITLE}`} slot="meta" />
+  <Fragment slot="main">
+    <p class="mb-6">
+     My name is Jake Park, and I am a senior at BT Teterboro. Here's some quick info about me!
+    </p>
+    
+    <p class="mb-5">
+    I like... cybersecurity stuff!
+    <br>
+    > I play CTFs with the bergen community college waitlist. (bt + bca)
+    <br>
+    > I do CyberPatriot, and last year we got 2nd in NJ for plat division!
+    <br>
+    > Currently a High Performer for the NSA Codebreaker Challenge 2024!
+    <br>
+    </p>
+    <p class="mb-5">
+    I am scared of... the college admissions process!
+    <br>
+    > Will I get into a good college?
+    <br>
+    > I write bad (gg personal statement)
+    <br>
+    > Too much competition (why can't I be a genius lol)
+    </p>
+    <p class="mb-5">
+    I currently dislike... APUSH and JAVA!
+    <br>
+    > APUSH too many notes (cornell why...)
+    <br>
+    > My java teacher sucks! (no comment)
+    </p>
+    Questions? I'm free to email (jakepark2908@gmail.com)
+  </Fragment>
+</PageLayout>
