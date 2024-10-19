@@ -39,7 +39,7 @@ const sortedPosts = posts
                   <a
                     href={post.frontmatter.url}
                     target="_blank"
-                    class="unset hover:text-text-link"
+                    class="unset hover:text"
                   >
                     <span>{post.frontmatter.title}</span>
                     <span>
@@ -49,7 +49,7 @@ const sortedPosts = posts
                 ) : (
                   <a
                     href={`/blog/${post.slug}`}
-                    class="unset hover:text-text-link"
+                    class="unset hover:text"
                   >
                     {post.frontmatter.title}
                   </a>
