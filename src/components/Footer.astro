@@ -1,40 +1,20 @@
 ---
+import Container from '@/components/Container.astro'
+import { SOCIAL_LINKS } from '@/consts'
+import SocialIcons from './SocialIcons.astro'
 ---
 
-<footer class="text-sm leading-[1.75] mt-4">
-  <div>
-    2024
-  </div>
+<footer class="py-4">
+  <Container>
+    <div
+      class="flex flex-col items-center justify-center gap-y-2 sm:flex-row sm:justify-between"
+    >
+      <div class="flex items-center">
+        <p class="text-center text-sm text-muted-foreground">
+          &copy; {new Date().getFullYear()} All rights reserved.
+        </p>
+      </div>
+      <SocialIcons links={SOCIAL_LINKS} />
+    </div>
+  </Container>
 </footer>
-
-<style>
-  footer {
-    grid-area: footer;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .gradient-link {
-    position: relative;
-    box-decoration-break: clone;
-    text-decoration: none;
-  }
-
-  .gradient-link:hover:after {
-    transform: translateZ(0) scale(1);
-  }
-
-  .gradient-link:after {
-    left: 0;
-    right: 0;
-    bottom: -2px;
-    content: "";
-    height: 2px;
-    position: absolute;
-    transform: translateZ(0) scaleX(0);
-    transform-origin: left center;
-    transition: all 0.15s ease-in-out;
-  }
-</style>

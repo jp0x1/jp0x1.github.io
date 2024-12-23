@@ -1,57 +1,34 @@
-import rss from "@astrojs/rss";
-import { blog } from "../lib/markdoc/frontmatter.schema";
-import { readAll } from "../lib/markdoc/read";
-import { SITE_TITLE, SITE_DESCRIPTION, SITE_URL } from "../config";
+import rss from '@astrojs/rss'
+import { SITE } from '@/consts'
+import type { APIContext } from 'astro'
+import { getCollection } from 'astro:content'
 
-export const get = async () => {
-  const posts = await readAll({
-    directory: "blog",
-    frontmatterSchema: blog,
-  });
+export async function GET(context: APIContext) {
+  try {
+    const blog = (await getCollection('blog')).filter(
+      (post) => !post.data.draft,
+    )
 
-  const sortedPosts = posts
-    .filter((p) => p.frontmatter.draft !== true)
-    .sort(
+    // Sort posts by date
+    const items = [...blog].sort(
       (a, b) =>
-        new Date(b.frontmatter.date).valueOf() -
-        new Date(a.frontmatter.date).valueOf()
-    );
+        new Date(b.data.date).valueOf() - new Date(a.data.date).valueOf(),
+    )
 
-  let baseUrl = SITE_URL;
-  // removing trailing slash if found
-  // https://example.com/ => https://example.com
-  baseUrl = baseUrl.replace(/\/+$/g, "");
-
-  const rssItems = sortedPosts.map(({ frontmatter, slug }) => {
-    if (frontmatter.external) {
-      const title = frontmatter.title;
-      const pubDate = frontmatter.date;
-      const link = frontmatter.url;
-
-      return {
-        title,
-        pubDate,
-        link,
-      };
-    }
-
-    const title = frontmatter.title;
-    const pubDate = frontmatter.date;
-    const description = frontmatter.description;
-    const link = `${baseUrl}/blog/${slug}`;
-
-    return {
-      title,
-      pubDate,
-      description,
-      link,
-    };
-  });
-
-  return rss({
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
-    site: baseUrl,
-    items: rssItems,
-  });
-};
+    // Return RSS feed
+    return rss({
+      title: SITE.TITLE,
+      description: SITE.DESCRIPTION,
+      site: context.site ?? SITE.SITEURL,
+      items: items.map((item) => ({
+        title: item.data.title,
+        description: item.data.description,
+        pubDate: item.data.date,
+        link: `/${item.collection}/${item.slug}/`,
+      })),
+    })
+  } catch (error) {
+    console.error('Error generating RSS feed:', error)
+    return new Response('Error generating RSS feed', { status: 500 })
+  }
+}

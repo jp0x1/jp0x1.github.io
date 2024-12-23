@@ -1,8 +1,12 @@
 {
   "extends": "astro/tsconfigs/strict",
-  "display": "theme/newspaper",
   "compilerOptions": {
-    "types": ["astro/client"],
-    "baseUrl": "."
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   }
 }

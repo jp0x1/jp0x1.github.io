@@ -1,43 +1,31 @@
 ---
-import PageMeta from "../components/PageMeta.astro";
-import PageLayout from "../layouts/PageLayout.astro";
-import Intro from "../components/Intro.astro";
-import { SITE_TITLE } from "../config";
+import Breadcrumbs from '@/components/Breadcrumbs.astro'
+import Container from '@/components/Container.astro'
+import ProjectCard from '@/components/ProjectCard.astro'
+import { SITE } from '@/consts'
+import Layout from '@/layouts/Layout.astro'
+import { getCollection } from 'astro:content'
+
+const projects = await getCollection('projects')
 ---
 
-<PageLayout>
-  <PageMeta title={`About | ${SITE_TITLE}`} slot="meta" />
-  <Fragment slot="main">
-    <p class="mb-6">
-     My name is Jake Park, and I am a senior at BT Teterboro. Here's some quick info about me!
-    </p>
-    
-    <p class="mb-5">
-    I like... cybersecurity stuff!
-    <br>
-    > I play CTFs with the bergen community college waitlist. (bt + bca)
-    <br>
-    > I do CyberPatriot, and last year we got 2nd in NJ for plat division!
-    <br>
-    > Currently a High Performer for the NSA Codebreaker Challenge 2024!
-    <br>
-    </p>
-    <p class="mb-5">
-    I am scared of... the college admissions process!
-    <br>
-    > Will I get into a good college?
-    <br>
-    > I write bad (gg personal statement)
-    <br>
-    > Too much competition (why can't I be a genius lol)
-    </p>
-    <p class="mb-5">
-    I currently dislike... APUSH and JAVA!
-    <br>
-    > APUSH too many notes (cornell why...)
-    <br>
-    > My java teacher sucks! (no comment)
-    </p>
-    Questions? I'm free to email (jakepark2908@gmail.com)
-  </Fragment>
-</PageLayout>
+<Layout title="About" description={SITE.DESCRIPTION}>
+  <Container class="flex flex-col gap-y-6">
+    <Breadcrumbs items={[{ label: 'About', icon: 'lucide:info' }]} />
+
+    <section>
+      <div class="min-w-full">
+        <h1 class="mb-4 text-3xl font-bold">Some more about us</h1>
+        <p class="prose prose-neutral mb-8 dark:prose-invert">
+          {SITE.TITLE} is an opinionated, no-frills static blogging template built
+          with Astro.
+        </p>
+
+        <h2 class="mb-4 text-2xl font-semibold">Our Projects</h2>
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.map((project) => <ProjectCard project={project} />)}
+        </div>
+      </div>
+    </section>
+  </Container>
+</Layout>
