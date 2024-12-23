@@ -23,22 +23,19 @@ const blog = (await getCollection('blog'))
 <Layout title="Home" description={SITE.DESCRIPTION}>
   <Container class="flex flex-col gap-y-6">
     <section>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-3xl">"JP"</CardTitle>
-          <CardDescription>
-          Jake Park
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p class="mb-2 text-sm">
-          Hi! I'm Jake Park, otherwise known as . Welcome to my blog where I write about stuff that interests me.
+         <h1 class="mb-4 text-3xl font-bold">"JP"</h1>
+          <p class="prose-neutral mb-8 dark:prose-invert">
+          Hi, I'm Jake Park. I'm currently a student at Bergen County Technical High Schools Teterboro and an incoming freshman at Carnegie Mellon University, hopefully majoring in Electrical and Computer Engineering. 
           </p>
-          <p class="text-sm text-muted-foreground">
-          Most content will be CTF writeups and maybe some engineering projects that I will do later.
+          <p class="prose-neutral mb-8 dark:prose-invert">
+          I (obviously) like computer security competitions and stuff. Aside from that, I also like learning physics, playing video games, listening to music, and walking / running outside. 
           </p>
-        </CardContent>
-      </Card>
+          <p class="prose-neutral mb-3 dark:prose-invert">
+            I'm looking for a CTF team currently, since I usually just play by myself. Hopefully I can play CTFs with new friends at university and have some fun / learn new things!
+          </p>
+          <p class="text-sm text-muted-foreground mb-4">
+          Feel free to email me at jakepark2908@gmail.com, or dm me on discord at jp_var03.
+          </p>
     </section>
     <section class="flex flex-col gap-y-4">
       <h2 class="text-2xl font-bold">Latest posts</h2>

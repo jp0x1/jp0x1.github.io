@@ -7,8 +7,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Geist', ...defaultTheme.fontFamily.sans],
-        mono: ['Geist Mono', ...defaultTheme.fontFamily.mono],
+        body: ["Roboto Mono", "sans-serif"],
+        heading: ["Roboto Mono", "sans-serif"],
+        // sans: ['Geist', ...defaultTheme.fontFamily.sans],
+        // mono: ['Roboto Mono', ...defaultTheme.fontFamily.mono],
       },
       colors: {
         background: 'hsl(var(--background))',
