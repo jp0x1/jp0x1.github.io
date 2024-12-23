@@ -15,16 +15,17 @@ const projects = await getCollection('projects')
 
     <section>
       <div class="min-w-full">
-        <h1 class="mb-4 text-3xl font-bold">Some more about us</h1>
+        <h1 class="mb-4 text-3xl font-bold">About Me</h1>
         <p class="prose prose-neutral mb-8 dark:prose-invert">
-          {SITE.TITLE} is an opinionated, no-frills static blogging template built
-          with Astro.
+          I'm "jp", aka Jake Park. I'm currently a student at Bergen County Technical High Schools Teterboro and an incoming freshman at Carnegie Mellon University, hopefully majoring in Electrical and Computer Engineering. 
         </p>
-
-        <h2 class="mb-4 text-2xl font-semibold">Our Projects</h2>
-        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => <ProjectCard project={project} />)}
-        </div>
+        <p class="prose prose-neutral mb-8 dark:prose-invert">
+         I (obviously) like computer security competitions and stuff. Aside from that, I also like learning physics, playing video games, listening to music, and walking / running outside. 
+        </p>
+        <p class="prose prose-neutral mb-8 dark:prose-invert">
+          I'm looking for a CTF team currently, since I usually just play by myself. Hopefully I can play CTFs with new friends at university and have some fun / learn new things!
+        </p>
+        
       </div>
     </section>
   </Container>

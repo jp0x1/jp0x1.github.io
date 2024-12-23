@@ -1,4 +1,14 @@
 declare module 'astro:content' {
+	interface Render {
+		'.mdx': Promise<{
+			Content: import('astro').MarkdownInstance<{}>['Content'];
+			headings: import('astro').MarkdownHeading[];
+			remarkPluginFrontmatter: Record<string, any>;
+		}>;
+	}
+}
+
+declare module 'astro:content' {
 	interface RenderResult {
 		Content: import('astro/runtime/server/index.js').AstroComponentFactory;
 		headings: import('astro').MarkdownHeading[];
@@ -140,71 +150,32 @@ declare module 'astro:content' {
 	>;
 
 	type ContentEntryMap = {
-		"blog": {
-"adding-new-post.md": {
-	id: "adding-new-post.md";
-  slug: "adding-new-posts-in-astropaper-theme";
+		"authors": {
+"jp.md": {
+	id: "jp.md";
+  slug: "jp";
   body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
-} & { render(): Render[".md"] };
-"android-reversing-suite.md": {
-	id: "android-reversing-suite.md";
-  slug: "android-reversing-suite";
-  body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
-} & { render(): Render[".md"] };
-"bcactf-5.md": {
-	id: "bcactf-5.md";
-  slug: "bcactf-5";
-  body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
-} & { render(): Render[".md"] };
-"csaw-2024.md": {
-	id: "csaw-2024.md";
-  slug: "csaw-2024";
-  body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
-} & { render(): Render[".md"] };
-"csctf-2024.md": {
-	id: "csctf-2024.md";
-  slug: "csctf-2024";
-  body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
-} & { render(): Render[".md"] };
-"defcon-quals-speedruns.md": {
-	id: "defcon-quals-speedruns.md";
-  slug: "defcon-quals-speedruns";
-  body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
-} & { render(): Render[".md"] };
-"downunderctf.md": {
-	id: "downunderctf.md";
-  slug: "downunderctf";
-  body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
-} & { render(): Render[".md"] };
-"picoCTF-2024.md": {
-	id: "picoCTF-2024.md";
-  slug: "picoctf-2024";
-  body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
-} & { render(): Render[".md"] };
-"wanictf.md": {
-	id: "wanictf.md";
-  slug: "wanictf";
-  body: string;
-  collection: "blog";
-  data: InferEntrySchema<"blog">
+  collection: "authors";
+  data: InferEntrySchema<"authors">
 } & { render(): Render[".md"] };
 };
+"blog": {
+"picoctf-2024-pwn/index.mdx": {
+	id: "picoctf-2024-pwn/index.mdx";
+  slug: "picoctf-2024-pwn";
+  body: string;
+  collection: "blog";
+  data: InferEntrySchema<"blog">
+} & { render(): Render[".mdx"] };
+};
+"projects": Record<string, {
+  id: string;
+  slug: string;
+  body: string;
+  collection: "projects";
+  data: InferEntrySchema<"projects">;
+  render(): Render[".md"];
+}>;
 
 	};
 
