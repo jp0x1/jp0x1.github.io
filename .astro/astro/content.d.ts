@@ -160,6 +160,20 @@ declare module 'astro:content' {
 } & { render(): Render[".md"] };
 };
 "blog": {
+"bcactf-2024-pwn/bcactf-5.mdx": {
+	id: "bcactf-2024-pwn/bcactf-5.mdx";
+  slug: "bcactf-2024-pwn/bcactf-5";
+  body: string;
+  collection: "blog";
+  data: InferEntrySchema<"blog">
+} & { render(): Render[".mdx"] };
+"nsa-cbc/index.mdx": {
+	id: "nsa-cbc/index.mdx";
+  slug: "nsa-cbc";
+  body: string;
+  collection: "blog";
+  data: InferEntrySchema<"blog">
+} & { render(): Render[".mdx"] };
 "picoctf-2024-pwn/index.mdx": {
 	id: "picoctf-2024-pwn/index.mdx";
   slug: "picoctf-2024-pwn";
