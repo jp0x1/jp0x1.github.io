@@ -2908,7 +2908,7 @@ await bulk.find(last_history_selector).update({ $set: {
 ```
 
 2. Wait 5 minutes for the program to aggregate and store our "valid" vid. 
-3. Use the msgpack overwrite trick to make `v: "m-00-000"` into `v: {"$ne":0}` placed in between the fields of a valid t field and the d field, ensuring m gets set to null by the program
+3. Use the msgpack overwrite trick to make `v: "m~~~~~~~"` into `v: {"$ne":0}` placed in between the fields of a valid t field and the d field, ensuring m gets set to null by the program
 4. Resend the msgpack overwrite trick, but this time have `t: {"$ne":0}` immediately in order for it to be aggregated with the entry with the valid t field.
 
 This will allow us to search and update for all entries and times!
