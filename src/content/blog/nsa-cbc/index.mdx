@@ -2159,9 +2159,30 @@ func initializeResponder(prologue []byte, s keypair, rs [32]byte, psk [32]byte) 
 }
 ```
 
-So we initialize as a responder, and write messageA. We write that through some custom code onto the go implementation of the noise K protocol provided by the website. With that, we can just combine our ephemereal key + shared static key + ciphertext into just one buffer.
+So we initialize as a responder, and write messageA. We write that through some custom code onto the go implementation of the noise K protocol provided by the website. With that, we can just combine our ephemereal key + shared static key + ciphertext into just one buffer. I added just some small stuff in writeMessageA such as generating my own ephemereal keypair and some debugging stuff like printing the message state out.
 
 ```
+func writeMessageA(hs *handshakestate, payload []byte) ([32]byte, messagebuffer, cipherstate, cipherstate, error) {
+	 var err error
+	 var messageBuffer messagebuffer
+	 ne, ns, ciphertext := emptyKey, []byte{}, []byte{}
+	
+	hs.e = generateKeypair()
+	ne = hs.e.public_key
+	 mixHash(&hs.ss, ne[:])
+	 /* No PSK, so skipping mixKey */
+	 mixKey(&hs.ss, dh(hs.s.private_key, ne))
+	 mixKey(&hs.ss, dh(hs.s.private_key, hs.rs))
+	 
+	 _, ciphertext, err = encryptAndHash(&hs.ss, payload)
+	 if err != nil {
+		 cs1, cs2 := split(&hs.ss)
+		 return hs.ss.h, messageBuffer, cs1, cs2, err
+	 }
+	 messageBuffer = messagebuffer{ne, ns, ciphertext}
+	 cs1, cs2 := split(&hs.ss)
+	 return hs.ss.h, messageBuffer, cs1, cs2, err
+ }
  func SendMessage(session *noisesession, message []byte) (*noisesession, messagebuffer, error) {
 	 var err error
 	 var messageBuffer messagebuffer
