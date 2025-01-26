@@ -686,7 +686,7 @@ And with that he solves it!
 
 ## Shopping Time
 
-> A simple login page can you get past it? And remember there are secrets you will have to figure out. After you find the flag remember that the format is TUCTF{(FLAG)} and the if the flag has spaces use _ instead when submitting.
+> A simple login page can you get past it? And remember there are secrets you will have to figure out. After you find the flag remember that the format is TUCTF and the if the flag has spaces use _ instead when submitting.
 
 Ok with the power of guessing what the challenge was, we can easily  bypass the login with an SQL injection
 
@@ -742,7 +742,7 @@ So the program gets stuff from sqlite, but the flag is blacklisted, and if we wa
 
 We can easily just get a hash that shares the same 6 bytes of the hexstring:
 
-```python
+```
 import hashlib
 import random
 import string
@@ -767,8 +767,8 @@ target_hash = "c5836008c1649301e29351a55db8f65c"
 target_prefix = target_hash[:6]  # Get the first 6 characters of the target hash
 matching_input, matching_hash = find_matching_md5(target_prefix)
 
-print(f"Found matching input: {matching_input}")
-print(f"Matching hash: {matching_hash}")
+print("Found matching input:" + matching_input)
+print("Matching hash: " + matching_hash)
 ```
 
 We get an input: bxcAyd5PMDG0Nax2
@@ -777,7 +777,7 @@ Submitting this in the search, we get our flag!
 
 https://shopping-time.tuctf.com/review?item=bxcAyd5PMDG0Nax2
 
-TUCTF{k1nd_0f_an_1d0r_vu1n!}
+```TUCTF{k1nd_0f_an_1d0r_vu1n!}```
 
 # Forensics
 

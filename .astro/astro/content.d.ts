@@ -181,6 +181,13 @@ declare module 'astro:content' {
   collection: "blog";
   data: InferEntrySchema<"blog">
 } & { render(): Render[".mdx"] };
+"some-tuctf/index.mdx": {
+	id: "some-tuctf/index.mdx";
+  slug: "some-tuctf";
+  body: string;
+  collection: "blog";
+  data: InferEntrySchema<"blog">
+} & { render(): Render[".mdx"] };
 };
 "projects": Record<string, {
   id: string;
