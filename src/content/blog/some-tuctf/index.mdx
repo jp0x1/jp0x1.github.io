@@ -465,7 +465,7 @@ And... we get our flag!
 
 First, lets just log in normally. We will just use Demo:TUCTF to log in. 
 
-Looking at the network in insepct element, we can see a graphql request and a dashboard.js file that sends the graphql request.
+Looking at the network and debugger in dev tools, we can see a graphql request and a dashboard.js file that sends the graphql request.
 
 ```js
 async function fetchPatientData() {
@@ -566,9 +566,9 @@ function displayDoctorInfo(doctor) {
 
 The request seems unsantized so we can basically just send anything we want to the endpoint. My guess for the objective was to log in as a doctor, but I was lowkey kinda lazy and didn't want to do it. So I just gave it to my friend mud to solve. 
 
-He was able to dump out the schema:
+He was able to dump out the schema using [some help](https://chatgpt.com/share/679978e1-8990-8009-bcae-9ab77f1ab1e8):
 
-```
+```json
 {
   "__schema": {
     "types": [
@@ -645,11 +645,11 @@ He was able to dump out the schema:
 ...
 ```
 
-Apparently he said we didn't have the permissions to access the doctor stuff ourselves, so we have to find a way in through patient. 
+Apparently he said we didn't have the permissions to access the doctor's fields ourselves, since our account is a patient. 
 
-He was able to access doctor information use the original query, but to inject a password into the field of doctor in order to get the doctor's password.
+He was able to access doctor information using the original query, but to inject a password into the field of doctor in order to get the doctor's password.
 
-```
+```js
 query = `
         {
             userData {
@@ -664,7 +664,7 @@ query = `
                 doctor {
                     name
                     department
-            password
+                    password
                 }
             }
         }
