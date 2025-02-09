@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # Adjust if using a different branch
   workflow_dispatch:
 
 permissions:
@@ -14,17 +14,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout your repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install, build, and upload your site
         uses: withastro/action@v2
+        with:
+          node-version: 20 # Set Node.js version
+          package-manager: pnpm@latest # Use pnpm
+          path: . # Set Astro project root
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: github-pages
-          path: dist  # Ensure this matches your Astro output directory
+          name: github-pages-${{ github.run_id }} # Unique artifact name
+          path: dist # Adjust if your build output is elsewhere
+          retention-days: 1 # Keeps the artifact for 1 day
 
   deploy:
     needs: build
@@ -33,10 +38,13 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: github-pages
+          name: github-pages-${{ github.run_id }}
           path: .
 
       - name: Deploy to GitHub Pages
