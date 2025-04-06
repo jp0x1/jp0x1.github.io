@@ -195,6 +195,13 @@ declare module 'astro:content' {
   collection: "blog";
   data: InferEntrySchema<"blog">
 } & { render(): Render[".mdx"] };
+"squirrelctf/squirrel.md": {
+	id: "squirrelctf/squirrel.md";
+  slug: "squirrelctf/squirrel";
+  body: string;
+  collection: "blog";
+  data: InferEntrySchema<"blog">
+} & { render(): Render[".md"] };
 };
 "projects": Record<string, {
   id: string;
