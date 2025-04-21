@@ -1,7 +1,7 @@
 ---
 title: 'some b01lersctf 2025 writeups'
 description: 'some b01lersctf 2025 writeups'
-date: 2025-01-26
+date: 2025-04-20
 tags: ['web', 'ctf', 'writeup']
 image: './boilers.png'
 authors: ['jp']
