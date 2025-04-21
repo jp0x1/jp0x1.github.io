@@ -8,7 +8,7 @@ authors: ['jp']
 ---
 
 # Background Information
-I participated in b01lersctf 2025 with Cosmic Bit Flips. I need to get better at web fr... (lowkey these solves were kinda meaningless lmao)
+I participated in b01lersctf 2025 with Cosmic Bit Flips and we got 20th with most members kinda busy w other things so I think we did good. I need to get better at web fr... (lowkey these solves were kinda meaningless lmao)
 
 # Web
 
