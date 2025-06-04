@@ -1,33 +1,23 @@
 ---
 import BlogCard from '@/components/BlogCard.astro'
-import Container from '@/components/Container.astro'
 import Link from '@/components/Link.astro'
+import PageHead from '@/components/PageHead.astro'
 import { buttonVariants } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { SITE } from '@/consts'
 import Layout from '@/layouts/Layout.astro'
-import { getCollection } from 'astro:content'
+import { getRecentPosts } from '@/lib/data-utils'
 
-const blog = (await getCollection('blog'))
-  .filter((post) => !post.data.draft)
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
-  .slice(0, SITE.NUM_POSTS_ON_HOMEPAGE)
+const blog = await getRecentPosts(SITE.featuredPostCount)
 ---
 
-<Layout title="Home" description={SITE.DESCRIPTION}>
-  <Container class="flex flex-col gap-y-6">
-    <section>
-         <h1 class="mb-4 text-3xl font-bold">"JP"</h1>
+<Layout class="max-w-3xl">
+  <PageHead slot="head" title="Home" />
+ <section>
+         <h1 class="mb-4 text-3xl font-bold">jake</h1>
           <p class="prose-neutral mb-8 dark:prose-invert">
-          Hi, I'm Jake Park. I'm currently a senior at Bergen County Technical High Schools Teterboro, incoming freshman at CMU (i think) hopefully majoring in Electrical and Computer Engineering with a focus on computer / software / hardware security.
+          Hi, I'm Jake Park. I'm currently a senior at Bergen County Technical High Schools Teterboro, incoming freshman at CMU (i think) hopefully majoring in Electrical and Computer Engineering.
           <p class="prose-neutral mb-8 dark:prose-invert">
-          I'm currently pretty interested in trying to learn some web3.  
+          I'm currently pretty interested in trying to learn about FPGAs. 
           </p>
           <p class="prose-neutral mb-3 dark:prose-invert">
             Currently in reCAPTCHA The Flag + Cosmic Bit Flips trying to main web & some pwn.
@@ -36,28 +26,27 @@ const blog = (await getCollection('blog'))
           Feel free to email me at jakepark2908@gmail.com, or dm me on discord at jp_var03.
           </p>
     </section>
-    <section class="flex flex-col gap-y-4">
-      <h2 class="text-2xl font-bold">Latest posts</h2>
-      <ul class="not-prose flex flex-col gap-y-4">
-        {
-          blog.map((post) => (
-            <li>
-              <BlogCard entry={post} />
-            </li>
-          ))
-        }
-      </ul>
-      <div class="flex justify-center">
-        <Link
-          href="/blog"
-          class={buttonVariants({ variant: 'ghost' }) + ' group'}
+  <section class="flex flex-col gap-y-4">
+    <h2 class="text-2xl font-medium">Latest posts</h2>
+    <ul class="flex flex-col gap-y-4">
+      {
+        blog.map((post) => (
+          <li>
+            <BlogCard entry={post} />
+          </li>
+        ))
+      }
+    </ul>
+    <div class="flex justify-center">
+      <Link
+        href="/blog"
+        class={buttonVariants({ variant: 'ghost' }) + ' group'}
+      >
+        See all posts <span
+          class="ml-1.5 transition-transform group-hover:translate-x-1"
+          >&rarr;</span
         >
-          See all posts <span
-            class="ml-1.5 transition-transform group-hover:translate-x-1"
-            >&rarr;</span
-          >
-        </Link>
-      </div>
-    </section>
-  </Container>
+      </Link>
+    </div>
+  </section>
 </Layout>

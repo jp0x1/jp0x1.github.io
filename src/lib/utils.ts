@@ -1,4 +1,3 @@
-import { getEntry } from 'astro:content'
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -14,35 +13,25 @@ export function formatDate(date: Date) {
   }).format(date)
 }
 
-export function readingTime(html: string) {
+export function calculateWordCountFromHtml(
+  html: string | null | undefined,
+): number {
+  if (!html) return 0
   const textOnly = html.replace(/<[^>]+>/g, '')
-  const wordCount = textOnly.split(/\s+/).length
-  const readingTimeMinutes = (wordCount / 200 + 1).toFixed()
+  return textOnly.split(/\s+/).filter(Boolean).length
+}
+
+export function readingTime(wordCount: number): string {
+  const readingTimeMinutes = Math.max(1, Math.round(wordCount / 200))
   return `${readingTimeMinutes} min read`
 }
 
-export async function parseAuthors(authors: string[]) {
-  if (!authors || authors.length === 0) return []
-
-  const parseAuthor = async (slug: string) => {
-    try {
-      const author = await getEntry('authors', slug)
-      return {
-        slug,
-        name: author?.data?.name || slug,
-        avatar: author?.data?.avatar || '/static/logo.png',
-        isRegistered: !!author,
-      }
-    } catch (error) {
-      console.error(`Error fetching author with slug ${slug}:`, error)
-      return {
-        slug,
-        name: slug,
-        avatar: '/static/logo.png',
-        isRegistered: false,
-      }
-    }
+export function getHeadingMargin(depth: number): string {
+  const margins: Record<number, string> = {
+    3: 'ml-4',
+    4: 'ml-8',
+    5: 'ml-12',
+    6: 'ml-16',
   }
-
-  return await Promise.all(authors.map(parseAuthor))
+  return margins[depth] || ''
 }
