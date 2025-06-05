@@ -1,0 +1,155 @@
+---
+title: 'hdlbits verilog problem set: verilog language'
+description: 'The verilog language problem sets from hdlbits'
+date: 2025-06-04
+tags: ['verilog']
+image: './hdl.png'
+authors: ['jp']
+---
+
+# Background Information
+
+I know ZERO FPGA stuff or like hardware stuff. I want to, but I'm stupid af. I need to learn some kind of hardware description language so I decided to go through this verilog exercises site. This post is just going through the verilog basics.
+
+## Basics
+
+### Simple wire
+
+> Verilog wires are directional and flow in one direction, from source to sink. 
+> Verilog "continuous assignment" is `assign left_side = right_side;` as the value of the signal of the right is driven to the wire on the left.
+> Ports have a direction (input or output). Input is driven by something from outside the module, while output drives something outside.
+
+```verilog
+module top_module( input in, output out );
+	assign out = in;
+endmodule
+```
+
+### Four Wires
+
+> For multiple assign statements, order in which they appear does not matter. 
+> Assign statements describe connections between things, not copying values from one thing to another
+
+```verilog
+module top_module( 
+    input a,b,c,
+    output w,x,y,z );
+	assign w = a;
+    assign x = b;
+    assign y = b;
+    assign z = c;
+endmodule
+```
+
+### Inverter
+
+> An inverter is a NOT gate
+
+```verilog
+module top_module( input in, output out );
+ assign out = ~in;
+endmodule
+```
+
+### AND gate
+
+> An AND gate has two inputs, and drives out the AND of the signals a and b.
+> "driven" just means "has a known value by something attached to it"
+
+```verilog
+module top_module( 
+    input a, 
+    input b, 
+    output out );
+	assign out = a & b;
+endmodule
+```
+
+### NOR gate
+
+> NOR gate is an OR gate with its output inverted.
+> NOR function needs two operators when written in verilog.
+
+```verilog
+module top_module( input a, input b, output out );
+    assign out = !(a | b);
+endmodule
+```
+
+### XNOR gate
+
+> XNOR is just inverted XOR gate.
+
+```verilog
+assign out = !(a ^ b);
+```
+
+### Declaring Wires
+
+> Need wires to connect internal components together.
+> When need to use wire, should declare it in the body of the module, somewhere before it is used
+> Basics use signal of type `wire`
+
+```verilog
+`default_nettype none
+module top_module(
+    input a,
+    input b,
+    input c,
+    input d,
+    output out,
+    output out_n   ); 
+    wire wireab = a & b;
+    wire wirecd = c & d;
+    wire wireabcd = !(wireab | wirecd);
+    assign out = !(wireabcd);
+    assign out_n = (wireabcd);
+endmodule
+```
+
+### 7458 chip
+
+> 7458 is a chip with four AND and two OR gates.
+
+```verilog
+module top_module ( 
+    input p1a, p1b, p1c, p1d, p1e, p1f,
+    output p1y,
+    input p2a, p2b, p2c, p2d,
+    output p2y );
+	
+    wire p1abc = (p1a & p1b & p1c);
+    wire p1fed = (p1f & p1e & p1d);
+    wire p2ab = (p2a & p2b);
+    wire p2cd = (p2c & p2d);
+    
+    assign p1y = p1abc | p1fed;
+    assign p2y = p2ab | p2cd;
+
+endmodule
+```
+
+## Vectors
+
+### Vectors
+
+> Vectors are used to group related signals using one name to make it more convenient to manipulate. For example, wire [7:0] w; declares an 8-bit vector named w that is functionally equivalent to having 8 separate wires.
+> Notice that the declaration of a vector places the dimensions before the name of the vector, which is unusual compared to C syntax. However, the part select has the dimensions after the vector name as you would expect.
+
+```verilog
+module top_module ( 
+    input wire [2:0] vec,
+    output wire [2:0] outv,
+    output wire o2,
+    output wire o1,
+    output wire o0  ); // Module body starts after module declaration
+    assign o0 = vec[0]; 
+    assign o1 = vec[1]; 
+    assign o2 = vec[2];
+    assign outv = vec;
+endmodule
+```
+
+### Vectors in more detail
+
+tbc.
