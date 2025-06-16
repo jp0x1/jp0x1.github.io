@@ -199,10 +199,6 @@ FLAG_HOST = "coolctfgames.localhost"
 PORT = 3000
 
 def exploit():
-    # New exploit approach: Since we can't fake the origin, we need to:
-    # 1. Update the page with content that disables/crashes the extensions
-    # 2. Make the bot visit the ACTUAL correct origin
-    # 3. The page at the correct origin will use our custom HTML that prevents extension interference
     
     exploit_html = """
     <!DOCTYPE html>
