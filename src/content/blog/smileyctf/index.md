@@ -427,7 +427,7 @@ if (isCouponValid()) {
         }
 ```
 
-Since we get a "less negative" number than the INTEGER.min_value, I suppose the calculation won't fuck up. Also subtracting a negative number gives a positive number (i shud b a crypto main). 
+Since we get a "less negative" number than the INTEGER.min_value, I suppose the calculation won't fuck up. Math is too difficult (i shud b a crypto main). 
 
 Applying the coupon gives us a big balance, and we can easily purchase the flag:
 
