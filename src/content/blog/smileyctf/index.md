@@ -167,7 +167,7 @@ def exploit():
                 print(f"[*] Bot status: {data}")
         except ValueError:
             # If not JSON, treat as plain text
-            if "flag" in response.text.lower() or ".;,;." in response.text:
+            if ".;,;." in response.text:
                 print(f"[+] FLAG CAPTURED: {response.text}")
             else:
                 print(f"[*] Raw response: {response.text}")
@@ -343,14 +343,14 @@ def exploit():
             # Handle both JSON and plain text responses
             try:
                 data = response.json()
-                if isinstance(data, str) and ("flag" in data.lower() or ".;,;." in data):
+                if isinstance(data, str) and ".;,;." in data):
                     print(f"\n[+] FLAG CAPTURED: {data}")
                     return
                 else:
                     print(f"[*] Attempt {attempt + 1}/{max_attempts} - Status: {data}")
             except ValueError:
                 # If not JSON, treat as plain text
-                if "flag" in response.text.lower() or ".;,;." in response.text:
+                if  ".;,;." in response.text:
                     print(f"\n[+] FLAG CAPTURED: {response.text}")
                     return
                 else:
