@@ -970,7 +970,7 @@ int __fastcall main(int argc, const char **argv, const char **envp)
 }
 ```
 
-Ok, so there is a vulnerability in `edit_area` where if we supply an out of bounds indices we can do an oob write with data. This is reliant on the size of the struct of the area data, but I'll edit it once i3 tells me more about it again. Additionally providing a negative index for edit_area will print out previous stack values, and we can leverage an index of -3 to get a libc leak.
+Ok, so there is a vulnerability in `edit_area` where if we supply an out of bounds indices greater than 15 we can do an oob write with data because of strcpy(). This is reliant on the size of the struct of the area data, but I'll edit it once i3 tells me more about it again. Additionally providing a negative index for edit_area will print out previous stack values, and we can leverage an index of -3 to get a libc leak.
 
 There is also a vulnerability in `create_area` where supplying "A" in x-coordinate and then doing `generate_beatmap` will output a stack leak. So we can use this to find location of RIP and calculate the OOB write there. Thankfully RIP does fit the constraints of the OOB write (will update later), so we can easily arb write to control RIP.
 
