@@ -50,13 +50,15 @@ The description of this post claims that v2 is better in every way I know how to
 | Homepage main-thread work | 0.43s | 0.12s | <delta-down>↓72%</delta-down> |
 | Series read: page loads | 6 | 1 | <delta-down>↓83%</delta-down> |
 | Series read: transfer | 669kb | 546kb | <delta-down>↓18%</delta-down> |
-| Build time <dim-span>(warm)</dim-span> | 6.1s | 1.2s | <delta-down>↓80%</delta-down> |
-| Build time <dim-span>(per page)</dim-span> | 303ms | 67ms | <delta-down>↓78%</delta-down> |
-| Direct dependencies | 33 | 13 | <delta-down>↓61%</delta-down> |
-| Installed packages | 636 | 294 | <delta-down>↓54%</delta-down> |
-| `node_modules` size | 334mb | 174mb | <delta-down>↓48%</delta-down> |
+| Build time <dim-span>(warm)</dim-span> | 6.1s | 3.5s | <delta-down>↓43%</delta-down> |
+| Build time <dim-span>(per page)</dim-span> | 303ms | 194ms | <delta-down>↓36%</delta-down> |
+| Direct dependencies | 33 | 15 | <delta-down>↓55%</delta-down> |
+| Installed packages | 636 | 318 | <delta-down>↓50%</delta-down> |
+| `node_modules` size | 334mb | 273mb | <delta-down>↓18%</delta-down> |
 
 The series rows measure reading every post of [the v1 release series](#regarding-subposts) end to end. v1 needs a full navigation per subpost, while v2 renders the whole chain as one continuous page.
+
+Both build scripts run `astro check && astro build{:sh}`, so the build rows include type checking on both sides. `astro build{:sh}` on its own is 0.8s for v2, which is where the ↓80% figure this post originally shipped with came from (see [the note on type checking](#regarding-dependency-hell)).
 
 ## Gripes, remediations
 
@@ -64,10 +66,10 @@ The format of this blog post will be simple: I will first talk about something I
 
 ### Regarding dependency hell
 
-In general, a good statistic that quantifies the "weight" of a project is its dependencies. This is only natural. astro-erudite v1 (which I will now just call v1 for brevity) had 33 direct dependencies <dim-span>(devDependencies included)</dim-span>. v2 reduces this by 61%, down to 13.
+In general, a good statistic that quantifies the "weight" of a project is its dependencies. This is only natural. astro-erudite v1 (which I will now just call v1 for brevity) had 33 direct dependencies <dim-span>(devDependencies included)</dim-span>. v2 reduces this by 55%, down to 15.
 
 :::note
-In terms of the full tree, a fresh `bun install{:sh}` reports **636** installed packages for v1 versus **294** for v2. A bare `astro` install is 254 packages on its own, so of the part of the tree I actually control, v1 stacked ~382 packages on top of Astro, and v2 adds 40.
+In terms of the full tree, a fresh `bun install{:sh}` reports **636** installed packages for v1 versus **318** for v2. A bare `astro` install is 195 packages on its own, and `@astrojs/check` drags in another 82, so the part of the tree I actually chose and control is 41 packages.
 :::
 
 The following is our `package.json` diff showing the changes:
@@ -76,7 +78,7 @@ The following is our `package.json` diff showing the changes:
     "dependencies": {
 -     "@astrojs/check": "0.9.7",
 -     "@astrojs/markdown-remark": "7.0.0",
-+     "@astrojs/markdown-satteri": "^0.2.1",
++     "@astrojs/markdown-satteri": "^0.3.2",
 -     "@astrojs/mdx": "5.0.0",
 -     "@astrojs/react": "5.0.0",
       "@astrojs/rss": "^4.0.18",
@@ -88,7 +90,7 @@ The following is our `package.json` diff showing the changes:
 -     "@tailwindcss/vite": "^4.0.7",
 -     "@types/react": "19.0.0",
 -     "@types/react-dom": "19.0.0",
-      "astro": "^6.4.2",
+      "astro": "^7.0.2",
 -     "astro-icon": "^1.1.5",
 -     "class-variance-authority": "^0.7.1",
 -     "clsx": "^2.1.1",
@@ -105,14 +107,16 @@ The following is our `package.json` diff showing the changes:
 -     "rehype-katex": "^7.0.1",
 -     "remark-emoji": "^5.0.1",
 -     "remark-math": "^6.0.0",
-+     "satteri-expressive-code": "^0.1.8",
++     "satteri-expressive-code": "^0.1.15",
 -     "tailwind-merge": "^3.3.0",
 -     "tailwindcss": "^4.1.7",
 +     "temml": "^0.13.3"
 -     "typescript": "^5.8.3"
   },
   "devDependencies": {
-+   "@biomejs/biome": "^2.4.16"
++   "@astrojs/check": "^0.9.10",
++   "@biomejs/biome": "^2.5.1",
++   "typescript": "^6.0.3"
 -   "prettier": "^3.5.1",
 -   "prettier-plugin-astro": "^0.14.1",
 -   "prettier-plugin-astro-organize-imports": "^0.4.11",
@@ -126,7 +130,6 @@ We can divvy our removed packages into four categories:
     - `lucide-react`, `astro-icon`, `@iconify-json/lucide`: These are icon libraries that shadcn/ui was also using. I've learned to opt out of these icon libraries <dim-span>(which are more <abbr title="Developer experience">DX</abbr> than anything)</dim-span> and to simply have SVGs in an `icons/` folder with the ones we actually use.
 2. **Things that existed to manage and fix issues with other things shouldn't have existed in the first place**. These are all things that don't actually do anything to the website, but rather do things to each other.
     - `tailwind-merge`, `clsx`, `class-variance-authority`: These are utility libraries that all mutate and fiddle around with Tailwind in specific ways. These are now entirely useless, because I've [removed Tailwind](#regarding-tailwind)!
-    - `typescript`, `@astrojs/check`: These were used in the old build script that ran `astro check && astro build{:sh}` instead of just `astro build{:sh}`. `typescript` wasn't actually compiling anything, it was installed so `@astrojs/check` could borrow its compiler.
 3. **Things that've fallen out of my favor**. These aren't necessarily entirely bad, but have been personally demerited by me these past couple years and have been replaced by alternatives I prefer.
     - `prettier`, `prettier-plugin-astro`, `prettier-plugin-astro-organize-imports`, `prettier-plugin-tailwindcss`: I've replaced this all with [`@biomejs/biome`](https://biomejs.dev/). It's just better, faster, and stronger for this use case.
     - `tailwindcss`, `@tailwindcss/vite`: As mentioned above, I've [removed Tailwind](#regarding-tailwind).

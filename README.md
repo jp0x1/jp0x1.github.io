@@ -303,5 +303,5 @@ Built with &hearts; by [enscribe](https://enscribe.dev)!
 
 [Stargazers]: https://img.shields.io/github/stars/jktrn/astro-erudite?color=fafafa&logo=github&logoColor=fff&style=flat
 [Astro Version]: https://img.shields.io/github/package-json/dependency-version/jktrn/astro-erudite/astro?color=0a0a0a&logo=astro&logoColor=fff&style=flat
-[Dependencies]: https://img.shields.io/badge/dependencies-13-fafafa?style=flat
+[Dependencies]: https://img.shields.io/badge/dependencies-15-fafafa?style=flat
 [License]: https://img.shields.io/github/license/jktrn/astro-erudite?color=0a0a0a&logo=github&logoColor=fff&style=flat

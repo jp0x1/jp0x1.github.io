@@ -42,30 +42,35 @@ export const calloutDirective = defineMdastPlugin({
     const iconName = VARIANTS[node.name]
     if (!iconName) return
 
-    const first = node.children[0]
+    const first = node.children?.[0]
     const isLabel =
       first?.type === "paragraph" &&
       (first.data as { directiveLabel?: boolean })?.directiveLabel === true
-    const label = isLabel ? ctx.textContent(first) : null
-    if (isLabel) ctx.removeNode(first)
 
-    const title: ElementContent[] = [
-      { type: "text", value: capitalize(node.name) },
-    ]
-    if (label) title.push(h("span", ` (${label})`))
+    const title = capitalize(node.name)
+    const icon = icons[iconName]
+    const chevron = icons["alt-arrow-down"]
 
-    const summary = toHtml(
-      h("summary", [
-        raw(icons[iconName]),
-        h("span", title),
-        raw(icons["alt-arrow-down"]),
-      ]),
-      { allowDangerousHtml: true },
-    )
+    if (isLabel) {
+      ctx.setProperty(first, "data", { hName: "summary" })
+      ctx.prependChild(first, {
+        type: "html",
+        value: `${icon}<span>${title}<span> (`,
+      })
+      ctx.appendChild(first, {
+        type: "html",
+        value: `)</span></span>${chevron}`,
+      })
+    } else {
+      const summary = toHtml(
+        h("summary", [raw(icon), h("span", title), raw(chevron)]),
+        { allowDangerousHtml: true },
+      )
+      ctx.prependChild(node, { type: "html", value: summary })
+    }
 
     const closed = !!node.attributes && "closed" in node.attributes
 
-    ctx.prependChild(node, { type: "html", value: summary })
     ctx.setProperty(node, "data", {
       hName: "details",
       hProperties: {

@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "format": "biome format --write .",
@@ -28,6 +28,8 @@
     "temml": "^0.13.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.1"
+    "@astrojs/check": "^0.9.10",
+    "@biomejs/biome": "^2.5.1",
+    "typescript": "^6.0.3"
   }
 }

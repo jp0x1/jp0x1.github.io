@@ -315,6 +315,11 @@ const { title, sections } = Astro.props
 
     const fallback = currentLabel?.textContent ?? ""
 
+    const scrollPaddingTop =
+      Number.parseFloat(
+        getComputedStyle(document.documentElement).scrollPaddingBlockStart,
+      ) || 0
+
     const groups = [
       ...nav.querySelectorAll<HTMLDetailsElement>("li[data-group] details"),
     ].map((details) => ({
@@ -373,6 +378,9 @@ const { title, sections } = Astro.props
       }
     })
 
+    const observerOptions = {
+      rootMargin: `-${scrollPaddingTop}px 0px 0px`,
+    }
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.target === heading) {
@@ -419,7 +427,7 @@ const { title, sections } = Astro.props
       }
       prevActive = activeTargets
       if (grew) center()
-    })
+    }, observerOptions)
 
     for (const block of sectionOf.keys()) observer.observe(block)
     if (heading) {
