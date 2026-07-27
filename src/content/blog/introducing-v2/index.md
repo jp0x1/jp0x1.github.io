@@ -38,27 +38,25 @@ What you are now looking at is the culmination of all the lessons I've learned t
 
 ### Benchmarks
 
-The description of this post claims that v2 is better in every way I know how to measure, so here are the measurements. Both versions were benchmarked with the same blog posts on the same machine:
+The description of this post claims that v2 is better in every way I know how to measure, so here are the measurements. Both versions were benchmarked with the same blog posts on the same machine, with v1 pinned to `v1.6.3`:
 
 | | v1 | v2 | Δ |
 | - | -: | -: | -: |
-| JavaScript shipped | 253kb | 6.5kb | <delta-down>↓97%</delta-down> |
-| Largest JavaScript file | 169.8kb <dim-span>(React)</dim-span> | 2.4kb <dim-span>(ToC)</dim-span> | <delta-down>↓99%</delta-down> |
-| CSS shipped | 76kb | 24.2kb | <delta-down>↓68%</delta-down> |
-| Homepage transfer size | 293kb | 216kb | <delta-down>↓26%</delta-down> |
-| Homepage requests | 14 | 7 | <delta-down>↓50%</delta-down> |
-| Homepage main-thread work | 0.43s | 0.12s | <delta-down>↓72%</delta-down> |
+| JavaScript shipped | 334.4kb | 6.9kb | <delta-down>↓98%</delta-down> |
+| Largest JavaScript file | 174.4kb <dim-span>(React)</dim-span> | 2.6kb <dim-span>(ToC)</dim-span> | <delta-down>↓99%</delta-down> |
+| CSS shipped | 106.5kb | 30.3kb | <delta-down>↓72%</delta-down> |
+| Homepage transfer size | 480.3kb | 238.5kb | <delta-down>↓50%</delta-down> |
+| Homepage requests | 14 | 8 | <delta-down>↓43%</delta-down> |
+| Homepage main-thread work | 0.19s | 0.08s | <delta-down>↓58%</delta-down> |
 | Series read: page loads | 6 | 1 | <delta-down>↓83%</delta-down> |
-| Series read: transfer | 669kb | 546kb | <delta-down>↓18%</delta-down> |
-| Build time <dim-span>(warm)</dim-span> | 6.1s | 3.5s | <delta-down>↓43%</delta-down> |
-| Build time <dim-span>(per page)</dim-span> | 303ms | 194ms | <delta-down>↓36%</delta-down> |
-| Direct dependencies | 33 | 15 | <delta-down>↓55%</delta-down> |
-| Installed packages | 636 | 318 | <delta-down>↓50%</delta-down> |
+| Series read: transfer | 1.52mb | 1.03mb | <delta-down>↓32%</delta-down> |
+| Build time <dim-span>(warm)</dim-span> | 7.2s | 3.5s | <delta-down>↓51%</delta-down> |
+| Build time <dim-span>(per page)</dim-span> | 360ms | 194ms | <delta-down>↓46%</delta-down> |
+| Direct dependencies | 34 | 15 | <delta-down>↓56%</delta-down> |
+| Installed packages | 782 | 318 | <delta-down>↓59%</delta-down> |
 | `node_modules` size | 334mb | 273mb | <delta-down>↓18%</delta-down> |
 
 The series rows measure reading every post of [the v1 release series](#regarding-subposts) end to end. v1 needs a full navigation per subpost, while v2 renders the whole chain as one continuous page.
-
-Both build scripts run `astro check && astro build{:sh}`, so the build rows include type checking on both sides. `astro build{:sh}` on its own is 0.8s for v2, which is where the ↓80% figure this post originally shipped with came from (see [the note on type checking](#regarding-dependency-hell)).
 
 ## Gripes, remediations
 
@@ -66,31 +64,32 @@ The format of this blog post will be simple: I will first talk about something I
 
 ### Regarding dependency hell
 
-In general, a good statistic that quantifies the "weight" of a project is its dependencies. This is only natural. astro-erudite v1 (which I will now just call v1 for brevity) had 33 direct dependencies <dim-span>(devDependencies included)</dim-span>. v2 reduces this by 55%, down to 15.
+In general, a good statistic that quantifies the "weight" of a project is its dependencies. This is only natural. astro-erudite v1 (which I will now just call v1 for brevity) had 34 direct dependencies <dim-span>(devDependencies included)</dim-span>. v2 reduces this by 56%, down to 15.
 
 :::note
-In terms of the full tree, a fresh `bun install{:sh}` reports **636** installed packages for v1 versus **318** for v2. A bare `astro` install is 195 packages on its own, and `@astrojs/check` drags in another 82, so the part of the tree I actually chose and control is 41 packages.
+In terms of the full tree, a fresh `bun install{:sh}` reports **782** installed packages for v1 versus **318** for v2. A bare `astro` install is 195 packages on its own, and `@astrojs/check` drags in another 82, so the part of the tree I actually chose and control is 41 packages.
 :::
 
 The following is our `package.json` diff showing the changes:
 
 ```diff lang="json" title="package.json" showLineNumbers=false
     "dependencies": {
--     "@astrojs/check": "0.9.7",
--     "@astrojs/markdown-remark": "7.0.0",
+-     "@astrojs/check": "^0.9.4",
+-     "@astrojs/markdown-remark": "^6.3.1",
 +     "@astrojs/markdown-satteri": "^0.3.2",
--     "@astrojs/mdx": "5.0.0",
--     "@astrojs/react": "5.0.0",
+-     "@astrojs/mdx": "^4.2.6",
+-     "@astrojs/react": "^4.2.7",
       "@astrojs/rss": "^4.0.18",
       "@astrojs/sitemap": "^3.7.3",
       "@expressive-code/plugin-collapsible-sections": "^0.42.0",
       "@expressive-code/plugin-line-numbers": "^0.42.0",
 -     "@iconify-json/lucide": "^1.2.26",
--     "@shikijs/rehype": "^3.4.0",
 -     "@tailwindcss/vite": "^4.0.7",
 -     "@types/react": "19.0.0",
 -     "@types/react-dom": "19.0.0",
-      "astro": "^7.0.2",
+-     "astro": "^5.7.13",
++     "astro": "^7.0.2",
+-     "astro-expressive-code": "^0.40.2",
 -     "astro-icon": "^1.1.5",
 -     "class-variance-authority": "^0.7.1",
 -     "clsx": "^2.1.1",
@@ -99,12 +98,13 @@ The following is our `package.json` diff showing the changes:
 +     "hast-util-to-html": "^9.0.5",
 +     "hastscript": "^9.0.1",
 -     "lucide-react": "^0.469.0",
+-     "patch-package": "^8.0.0",
 -     "radix-ui": "^1.3.4",
 -     "react": "19.0.0",
 -     "react-dom": "19.0.0",
--     "rehype-expressive-code": "^0.40.2",
 -     "rehype-external-links": "^3.0.0",
 -     "rehype-katex": "^7.0.1",
+-     "rehype-pretty-code": "^0.14.1",
 -     "remark-emoji": "^5.0.1",
 -     "remark-math": "^6.0.0",
 +     "satteri-expressive-code": "^0.1.15",
@@ -130,11 +130,16 @@ We can divvy our removed packages into four categories:
     - `lucide-react`, `astro-icon`, `@iconify-json/lucide`: These are icon libraries that shadcn/ui was also using. I've learned to opt out of these icon libraries <dim-span>(which are more <abbr title="Developer experience">DX</abbr> than anything)</dim-span> and to simply have SVGs in an `icons/` folder with the ones we actually use.
 2. **Things that existed to manage and fix issues with other things shouldn't have existed in the first place**. These are all things that don't actually do anything to the website, but rather do things to each other.
     - `tailwind-merge`, `clsx`, `class-variance-authority`: These are utility libraries that all mutate and fiddle around with Tailwind in specific ways. These are now entirely useless, because I've [removed Tailwind](#regarding-tailwind)!
+    - `patch-package`: This existed to hold a `postinstall` patch against a dependency that had a bug I couldn't wait out. A build step whose only job is to rewrite another package on the way in is a smell, and none of v2's dependencies need patching.
 3. **Things that've fallen out of my favor**. These aren't necessarily entirely bad, but have been personally demerited by me these past couple years and have been replaced by alternatives I prefer.
     - `prettier`, `prettier-plugin-astro`, `prettier-plugin-astro-organize-imports`, `prettier-plugin-tailwindcss`: I've replaced this all with [`@biomejs/biome`](https://biomejs.dev/). It's just better, faster, and stronger for this use case.
     - `tailwindcss`, `@tailwindcss/vite`: As mentioned above, I've [removed Tailwind](#regarding-tailwind).
     - `@astrojs/mdx`: I've removed MDX support entirely. See [Regarding MDX](#regarding-mdx).
-4. **The Markdown pipeline** (`@astrojs/markdown-remark`, `rehype-expressive-code`, `@shikijs/rehype`, `rehype-external-links`, `remark-emoji`, `rehype-katex`, `remark-math`). All of these either add support for the [unified](https://github.com/unifiedjs/unified) plugin ecosystem or are plugins themselves. I will talk more about our new Markdown pipeline, [Sätteri](https://satteri.bruits.org/), which removes `unified` and instead has a first-class <abbr title="Markdown Abstract Syntax Tree">MDAST</abbr> and <abbr title="HTML Abstract Syntax Tree">HAST</abbr> plugin API.
+4. **The Markdown pipeline** (`@astrojs/markdown-remark`, `astro-expressive-code`, `rehype-pretty-code`, `rehype-external-links`, `remark-emoji`, `rehype-katex`, `remark-math`). All of these either add support for the [unified](https://github.com/unifiedjs/unified) plugin ecosystem or are plugins themselves. I will talk more about our new Markdown pipeline, [Sätteri](https://satteri.bruits.org/), which removes `unified` and instead has a first-class <abbr title="Markdown Abstract Syntax Tree">MDAST</abbr> and <abbr title="HTML Abstract Syntax Tree">HAST</abbr> plugin API.
+
+Two packages moved rather than left. `typescript` and `@astrojs/check` are now `devDependencies` instead of runtime `dependencies`, which is where they always belonged, and the build script still runs `astro check && astro build{:sh}`. I did try shipping v2 without them, because dropping both is the single biggest win available on every dependency number in this post: 82 fewer installed packages and about 71mb less `node_modules`. `typescript` isn't even compiling anything, it's installed so `@astrojs/check` can borrow its compiler.
+
+I put them back anyway. Without `astro check{:sh}`, nothing type checks the `.astro` files or the content collection schemas, so a typo in a component prop or a frontmatter field builds clean and breaks in someone's browser instead of on my machine. Two packages to move that failure earlier is a trade I'll take, and it's the one place in this rewrite where I chose a bigger dependency tree on purpose. If you disagree, deleting both and changing `build` back to `astro build{:sh}` is a one-line edit.
 
 ### Regarding Tailwind
 
